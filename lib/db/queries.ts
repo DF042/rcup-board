@@ -211,9 +211,22 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
+function resolvePath(record: Record<string, unknown>, key: string): unknown {
+  const parts = key.split(".");
+  let value: unknown = record;
+  for (const part of parts) {
+    if (typeof value === "object" && value !== null) {
+      value = (value as Record<string, unknown>)[part];
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+}
+
 function pickNumber(record: Record<string, unknown>, keys: string[], fallback = 0): number {
   for (const key of keys) {
-    const value = record[key];
+    const value = resolvePath(record, key);
     if (value !== undefined && value !== null && value !== "") {
       return toNumber(value);
     }
@@ -223,7 +236,7 @@ function pickNumber(record: Record<string, unknown>, keys: string[], fallback = 
 
 function pickString(record: Record<string, unknown>, keys: string[], fallback = ""): string {
   for (const key of keys) {
-    const value = record[key];
+    const value = resolvePath(record, key);
     if (value !== undefined && value !== null && `${value}`.trim()) {
       return String(value);
     }

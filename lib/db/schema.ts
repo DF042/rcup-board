@@ -91,7 +91,11 @@ export const rosters = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("rosters_team_idx").on(table.teamId), index("rosters_player_idx").on(table.playerId)],
+  (table) => [
+    index("rosters_team_idx").on(table.teamId),
+    index("rosters_player_idx").on(table.playerId),
+    unique("rosters_unique").on(table.teamId, table.playerId, table.leagueId, table.week),
+  ],
 );
 
 export const matchups = pgTable(
@@ -111,7 +115,10 @@ export const matchups = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index("matchups_league_week_idx").on(table.leagueId, table.week)],
+  (table) => [
+    index("matchups_league_week_idx").on(table.leagueId, table.week),
+    unique("matchups_unique").on(table.leagueId, table.week, table.team1Id, table.team2Id),
+  ],
 );
 
 export const playerStats = pgTable(
