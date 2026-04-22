@@ -2,7 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import https from "node:https";
-import { URL } from "node:url";
+import { URL, pathToFileURL } from "node:url";
 import readline from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 
@@ -28,7 +28,10 @@ const YAHOO_AUTH_URL = "https://api.login.yahoo.com/oauth2/request_auth";
 const YAHOO_TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token";
 const YAHOO_API_BASE = "https://fantasysports.yahooapis.com/fantasy/v2";
 const TOKEN_FILE = path.resolve(process.cwd(), ".yahoo-tokens.json");
+const DEFAULT_WEEKS = 18;
+const TOKEN_REFRESH_BUFFER_MS = 60_000;
 const RATE_LIMIT_DELAY_MS = 300;
+const NON_STARTING_POSITIONS = new Set(["BN", "IR"]);
 
 let lastApiCallAt = 0;
 
@@ -123,7 +126,7 @@ function parseArgs(argv: string[]): CliOptions {
       continue;
     }
     if (arg === "--weeks") {
-      options.weeks = asNumber(value, 18);
+      options.weeks = asNumber(value, DEFAULT_WEEKS);
       i += 1;
       continue;
     }
@@ -147,7 +150,7 @@ function parseArgs(argv: string[]): CliOptions {
 
   return {
     league: options.league,
-    weeks: options.weeks && options.weeks > 0 ? options.weeks : 18,
+    weeks: options.weeks && options.weeks > 0 ? options.weeks : DEFAULT_WEEKS,
     season: options.season,
     out: options.out ? path.resolve(process.cwd(), options.out) : path.resolve(process.cwd(), "data"),
   };
@@ -236,7 +239,7 @@ async function writeTokenFile(tokens: YahooTokens) {
 function isAccessTokenExpired(tokens: YahooTokens): boolean {
   if (!tokens.expires_in) return false;
   const expiresAt = tokens.acquired_at + tokens.expires_in * 1000;
-  return Date.now() >= expiresAt - 60_000;
+  return Date.now() >= expiresAt - TOKEN_REFRESH_BUFFER_MS;
 }
 
 async function exchangeToken(
@@ -521,7 +524,7 @@ function extractRosters(response: JsonRecord, leagueId: string, week: number): J
         league_id: leagueId,
         week,
         roster_position: selectedPosition,
-        is_starting: selectedPosition !== "BN" && selectedPosition !== "IR",
+        is_starting: !NON_STARTING_POSITIONS.has(selectedPosition),
       });
     }
   }
@@ -661,7 +664,14 @@ async function main() {
   console.log(`  npm run import ${path.join(relativeOut, "transactions.json")}`);
 }
 
-main().catch((error) => {
-  console.error("Fetch failed:", error);
-  process.exit(1);
-});
+export const __private = {
+  parseArgs,
+  extractMatchups,
+};
+
+if (import.meta.url === pathToFileURL(process.argv[1]!).href) {
+  main().catch((error) => {
+    console.error("Fetch failed:", error);
+    process.exit(1);
+  });
+}
