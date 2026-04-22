@@ -703,13 +703,62 @@ export async function getTeamMatchupHistory(team1Id: string, team2Id: string): P
   const two = Number(team2Id);
   if (!Number.isFinite(one) || !Number.isFinite(two)) return [];
 
-  return getMatchups({}).then((rows) =>
-    rows.filter(
-      (row) =>
-        (row.team1Id === one && row.team2Id === two) ||
-        (row.team1Id === two && row.team2Id === one),
-    ),
-  );
+  // Filter in the database instead of loading all matchups and filtering in memory.
+  const team1Alias = alias(teams, "team1");
+  const team2Alias = alias(teams, "team2");
+  const manager1Alias = alias(managers, "manager1");
+  const manager2Alias = alias(managers, "manager2");
+
+  const rows = await db
+    .select({
+      id: matchups.id,
+      leagueId: matchups.leagueId,
+      season: leagues.season,
+      week: matchups.week,
+      team1Id: matchups.team1Id,
+      team1Name: team1Alias.name,
+      team1ManagerId: team1Alias.managerId,
+      team1ManagerName: manager1Alias.nickname,
+      team1Points: matchups.team1Points,
+      team2Id: matchups.team2Id,
+      team2Name: team2Alias.name,
+      team2ManagerId: team2Alias.managerId,
+      team2ManagerName: manager2Alias.nickname,
+      team2Points: matchups.team2Points,
+      winnerTeamId: matchups.winnerTeamId,
+    })
+    .from(matchups)
+    .innerJoin(leagues, eq(matchups.leagueId, leagues.id))
+    .innerJoin(team1Alias, eq(matchups.team1Id, team1Alias.id))
+    .innerJoin(team2Alias, eq(matchups.team2Id, team2Alias.id))
+    .leftJoin(manager1Alias, eq(team1Alias.managerId, manager1Alias.id))
+    .leftJoin(manager2Alias, eq(team2Alias.managerId, manager2Alias.id))
+    .where(
+      or(
+        and(eq(matchups.team1Id, one), eq(matchups.team2Id, two)),
+        and(eq(matchups.team1Id, two), eq(matchups.team2Id, one)),
+      ),
+    )
+    .orderBy(desc(leagues.season), desc(matchups.week));
+
+  return rows.map((row) => ({
+    id: row.id,
+    leagueId: row.leagueId,
+    season: row.season ?? 0,
+    week: row.week,
+    team1Id: row.team1Id,
+    team1Name: row.team1Name,
+    team1ManagerId: row.team1ManagerId,
+    team1ManagerName: row.team1ManagerName,
+    team1Points: toNumber(row.team1Points),
+    team2Id: row.team2Id,
+    team2Name: row.team2Name,
+    team2ManagerId: row.team2ManagerId,
+    team2ManagerName: row.team2ManagerName,
+    team2Points: toNumber(row.team2Points),
+    winnerTeamId: row.winnerTeamId,
+    winnerTeamName: row.winnerTeamId === row.team1Id ? row.team1Name : row.winnerTeamId === row.team2Id ? row.team2Name : null,
+  }));
 }
 
 export async function getHeadToHead(manager1Id: string, manager2Id: string): Promise<HeadToHeadResult> {
@@ -726,10 +775,71 @@ export async function getHeadToHead(manager1Id: string, manager2Id: string): Pro
   const m2Teams = new Set(managerTeams.filter((t) => t.managerId === m2).map((t) => t.teamId));
   if (!m1Teams.size || !m2Teams.size) return { manager1Wins: 0, manager2Wins: 0, ties: 0, matchups: [] };
 
-  const all = await getMatchups({});
-  const filtered = all.filter(
-    (row) => (m1Teams.has(row.team1Id) && m2Teams.has(row.team2Id)) || (m1Teams.has(row.team2Id) && m2Teams.has(row.team1Id)),
+  const m1TeamIds = [...m1Teams];
+  const m2TeamIds = [...m2Teams];
+
+  // Build DB-level conditions for every cross-pair of teams so we never load
+  // the full matchups table into memory.
+  const pairConditions = m1TeamIds.flatMap((t1) =>
+    m2TeamIds.map((t2) =>
+      or(
+        and(eq(matchups.team1Id, t1), eq(matchups.team2Id, t2)),
+        and(eq(matchups.team1Id, t2), eq(matchups.team2Id, t1)),
+      ),
+    ),
   );
+
+  const team1Alias = alias(teams, "team1");
+  const team2Alias = alias(teams, "team2");
+  const manager1Alias = alias(managers, "manager1");
+  const manager2Alias = alias(managers, "manager2");
+
+  const rows = await db
+    .select({
+      id: matchups.id,
+      leagueId: matchups.leagueId,
+      season: leagues.season,
+      week: matchups.week,
+      team1Id: matchups.team1Id,
+      team1Name: team1Alias.name,
+      team1ManagerId: team1Alias.managerId,
+      team1ManagerName: manager1Alias.nickname,
+      team1Points: matchups.team1Points,
+      team2Id: matchups.team2Id,
+      team2Name: team2Alias.name,
+      team2ManagerId: team2Alias.managerId,
+      team2ManagerName: manager2Alias.nickname,
+      team2Points: matchups.team2Points,
+      winnerTeamId: matchups.winnerTeamId,
+    })
+    .from(matchups)
+    .innerJoin(leagues, eq(matchups.leagueId, leagues.id))
+    .innerJoin(team1Alias, eq(matchups.team1Id, team1Alias.id))
+    .innerJoin(team2Alias, eq(matchups.team2Id, team2Alias.id))
+    .leftJoin(manager1Alias, eq(team1Alias.managerId, manager1Alias.id))
+    .leftJoin(manager2Alias, eq(team2Alias.managerId, manager2Alias.id))
+    .where(pairConditions.length === 1 ? pairConditions[0] : or(...pairConditions))
+    .orderBy(desc(leagues.season), desc(matchups.week));
+
+  const filtered: MatchupWithTeams[] = rows.map((row) => ({
+    id: row.id,
+    leagueId: row.leagueId,
+    season: row.season ?? 0,
+    week: row.week,
+    team1Id: row.team1Id,
+    team1Name: row.team1Name,
+    team1ManagerId: row.team1ManagerId,
+    team1ManagerName: row.team1ManagerName,
+    team1Points: toNumber(row.team1Points),
+    team2Id: row.team2Id,
+    team2Name: row.team2Name,
+    team2ManagerId: row.team2ManagerId,
+    team2ManagerName: row.team2ManagerName,
+    team2Points: toNumber(row.team2Points),
+    winnerTeamId: row.winnerTeamId,
+    winnerTeamName:
+      row.winnerTeamId === row.team1Id ? row.team1Name : row.winnerTeamId === row.team2Id ? row.team2Name : null,
+  }));
 
   let manager1Wins = 0;
   let manager2Wins = 0;
@@ -741,12 +851,7 @@ export async function getHeadToHead(manager1Id: string, manager2Id: string): Pro
     else if (m2Teams.has(row.winnerTeamId)) manager2Wins += 1;
   }
 
-  return {
-    manager1Wins,
-    manager2Wins,
-    ties,
-    matchups: filtered,
-  };
+  return { manager1Wins, manager2Wins, ties, matchups: filtered };
 }
 
 export async function getCurrentWeek(leagueId: string): Promise<number> {
@@ -865,6 +970,46 @@ export async function getPlayerByKey(playerKey: string): Promise<PlayerDetail | 
 }
 
 export async function getTopScorers(params: { season: number; week?: number; position?: string; limit?: number }): Promise<PlayerScore[]> {
+  const whereClause = and(
+    eq(playerStats.season, params.season),
+    params.week !== undefined ? eq(playerStats.week, params.week) : undefined,
+    params.position ? sql`${params.position} = any(${players.positions})` : undefined,
+  );
+
+  if (params.week !== undefined) {
+    // Specific week query: group by player + week so we get per-week points.
+    const rows = await db
+      .select({
+        playerId: players.id,
+        playerKey: players.playerKey,
+        name: players.fullName,
+        position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
+        nflTeam: players.nflTeam,
+        points: sql<number>`coalesce(sum(${playerStats.points}::numeric), 0)`,
+        week: playerStats.week,
+        season: playerStats.season,
+      })
+      .from(playerStats)
+      .innerJoin(players, eq(playerStats.playerId, players.id))
+      .where(whereClause)
+      .groupBy(players.id, playerStats.week, playerStats.season)
+      .orderBy(desc(sql`coalesce(sum(${playerStats.points}::numeric), 0)`))
+      .limit(params.limit ?? 10);
+
+    return rows.map((row) => ({
+      playerId: row.playerId,
+      playerKey: row.playerKey,
+      name: row.name,
+      position: row.position,
+      nflTeam: row.nflTeam,
+      points: toNumber(row.points),
+      week: row.week,
+      season: row.season ?? 0,
+    }));
+  }
+
+  // Season-level query: sum all weeks, group only by player so each player
+  // appears once with their total season points.
   const rows = await db
     .select({
       playerId: players.id,
@@ -873,19 +1018,12 @@ export async function getTopScorers(params: { season: number; week?: number; pos
       position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
       nflTeam: players.nflTeam,
       points: sql<number>`coalesce(sum(${playerStats.points}::numeric), 0)`,
-      week: playerStats.week,
-      season: playerStats.season,
+      season: sql<number>`${params.season}`,
     })
     .from(playerStats)
     .innerJoin(players, eq(playerStats.playerId, players.id))
-    .where(
-      and(
-        eq(playerStats.season, params.season),
-        params.week ? eq(playerStats.week, params.week) : undefined,
-        params.position ? sql`${params.position} = any(${players.positions})` : undefined,
-      ),
-    )
-    .groupBy(players.id, playerStats.week, playerStats.season)
+    .where(whereClause)
+    .groupBy(players.id)
     .orderBy(desc(sql`coalesce(sum(${playerStats.points}::numeric), 0)`))
     .limit(params.limit ?? 10);
 
@@ -896,8 +1034,8 @@ export async function getTopScorers(params: { season: number; week?: number; pos
     position: row.position,
     nflTeam: row.nflTeam,
     points: toNumber(row.points),
-    week: row.week,
-    season: row.season ?? 0,
+    week: null,
+    season: params.season,
   }));
 }
 
@@ -983,7 +1121,7 @@ export async function getManagerRosterHistory(managerId: string): Promise<Player
       seasons: [],
       totalPoints: 0,
     };
-    if (!existing.seasons.includes(row.season)) existing.seasons.push(row.season);
+    if (!existing.seasons.includes(row.season) && row.season !== null) existing.seasons.push(row.season);
     existing.totalPoints += toNumber(row.points);
     grouped.set(row.playerId, existing);
   }
@@ -1020,12 +1158,20 @@ export async function crossViewQuery(params: {
       return { viewType: "team", entityId: params.entityId, dataType: "stats", data: result.players };
     }
 
-    const tx = await db
-      .select()
-      .from(transactions)
-      .innerJoin(teams, eq(teams.leagueId, transactions.leagueId))
+    // Resolve the team's leagueId directly, then fetch transactions for that league.
+    const teamRow = await db
+      .select({ leagueId: teams.leagueId })
+      .from(teams)
       .where(eq(teams.id, Number(params.entityId)))
-      .orderBy(desc(transactions.transactionTimestamp));
+      .limit(1);
+    const teamLeagueId = teamRow[0]?.leagueId;
+    const tx = teamLeagueId
+      ? await db
+          .select()
+          .from(transactions)
+          .where(eq(transactions.leagueId, teamLeagueId))
+          .orderBy(desc(transactions.transactionTimestamp))
+      : [];
     return { viewType: "team", entityId: params.entityId, dataType: "transactions", data: tx };
   }
 

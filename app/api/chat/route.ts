@@ -36,7 +36,17 @@ export async function POST(req: Request) {
     });
   }
 
-  const body = schema.safeParse(await req.json());
+  let rawBody: unknown;
+  try {
+    rawBody = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const body = schema.safeParse(rawBody);
   if (!body.success) {
     return new Response(JSON.stringify({ error: body.error.message }), {
       status: 400,

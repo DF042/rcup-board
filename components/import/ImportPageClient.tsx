@@ -35,6 +35,10 @@ export function ImportPageClient() {
 
     try {
       const response = await fetch("/api/import", { method: "POST", body: formData });
+      if (!response.ok) {
+        const errPayload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(errPayload?.error ?? `Import failed (${response.status})`);
+      }
       const payload = (await response.json()) as { data?: { summary?: Record<string, number> } };
       const summary = payload?.data?.summary ?? {};
       const text = `✓ Imported: ${summary.league ?? 0} league, ${summary.teams ?? 0} teams, ${summary.matchups ?? 0} matchups`;
@@ -43,8 +47,8 @@ export function ImportPageClient() {
         { id: crypto.randomUUID(), timestamp: new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }), summary: text },
         ...prev,
       ].slice(0, 5));
-    } catch {
-      setResult("Import failed. Please retry.");
+    } catch (err) {
+      setResult(err instanceof Error ? err.message : "Import failed. Please retry.");
     } finally {
       setLoading(false);
     }
