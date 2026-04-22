@@ -1,6 +1,8 @@
 import { FilterBar } from "@/components/filters/FilterBar";
+import { Calendar } from "lucide-react";
 import { ScoringBarChart } from "@/components/charts/ScoringBarChart";
 import { StandingsLineChart } from "@/components/charts/StandingsLineChart";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getAllSeasons, getTopScorers } from "@/lib/db/queries";
 
 export const revalidate = 300;
@@ -12,6 +14,18 @@ export default async function SeasonsPage({
 }) {
   const params = await searchParams;
   const seasons = await getAllSeasons();
+  if (seasons.length === 0) {
+    return (
+      <div className="py-4">
+        <EmptyState
+          icon={Calendar}
+          title="No seasons imported yet"
+          description="Import your first season to unlock comparisons and charts."
+        />
+      </div>
+    );
+  }
+
   const compare = params.compare?.split(",").map((value) => Number(value)).filter(Boolean) ?? seasons.slice(0, 2).map((value) => value.season);
 
   const scorerMap = new Map<number, string>();

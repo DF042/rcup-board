@@ -1,4 +1,6 @@
 import { TeamCard } from "@/components/teams/TeamCard";
+import { Shield } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getAllSeasons, getTeams } from "@/lib/db/queries";
 
 export const revalidate = 300;
@@ -39,7 +41,13 @@ export default async function TeamsPage({
           <TeamCard key={team.id} team={team} />
         ))}
       </div>
-      {filtered.length === 0 ? <p className="text-sm text-muted-foreground">No teams found.</p> : null}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={Shield}
+          title="No teams found"
+          description="No teams match your current filters, or no data has been imported yet."
+        />
+      ) : null}
     </div>
   );
 }

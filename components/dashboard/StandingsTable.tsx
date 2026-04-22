@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Trophy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { StandingRow } from "@/lib/db/queries";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst";
 
@@ -32,8 +34,20 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
     }
   };
 
+  if (sorted.length === 0) {
+    return (
+      <EmptyState
+        icon={Trophy}
+        title="No standings yet"
+        description="Import your first season's data to see league standings."
+        action={{ label: "Import Data", href: "/import" }}
+      />
+    );
+  }
+
   return (
-    <div className="overflow-hidden rounded border">
+    <div className="overflow-x-auto -mx-4 px-4">
+      <div className="min-w-[760px] overflow-hidden rounded border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left">
           <tr>
@@ -86,15 +100,9 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
               </tr>
             );
           })}
-          {sorted.length === 0 ? (
-            <tr>
-              <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
-                No standings data available.
-              </td>
-            </tr>
-          ) : null}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

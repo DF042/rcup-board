@@ -33,7 +33,8 @@ export function PlayerStatsTable({ players, total, page, pageSize }: { players: 
 
   return (
     <div className="space-y-2">
-      <div className="overflow-hidden rounded border">
+      <div className="overflow-x-auto -mx-4 px-4">
+        <div className="min-w-[760px] overflow-hidden rounded border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left">
             <tr>
@@ -82,6 +83,7 @@ export function PlayerStatsTable({ players, total, page, pageSize }: { players: 
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="text-xs text-muted-foreground">
         Showing page {page} · {Math.max(1, Math.ceil(total / pageSize))} total pages ({total} players)

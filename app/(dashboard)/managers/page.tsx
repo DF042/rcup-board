@@ -1,4 +1,6 @@
 import { ManagerCard } from "@/components/managers/ManagerCard";
+import { Users } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getAllManagers } from "@/lib/db/queries";
 
 export const revalidate = 300;
@@ -45,6 +47,13 @@ export default async function ManagersPage({
           <ManagerCard key={manager.managerId} manager={manager} />
         ))}
       </div>
+      {sorted.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No managers yet"
+          description="Import league history to start tracking manager performance."
+        />
+      ) : null}
     </div>
   );
 }
