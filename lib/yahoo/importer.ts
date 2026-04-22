@@ -37,6 +37,10 @@ export async function importYahooPayload(payload: unknown) {
     statCategories: 0,
   };
 
+  if (type === "unknown") {
+    console.warn("Warning: could not detect data type from payload. No data was imported.");
+  }
+
   if (type === "league") {
     const value = parseLeague(payload);
     await db.insert(leagues).values(value).onConflictDoUpdate({
