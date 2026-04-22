@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (!user) return fail("Unauthorized", 401);
 
   const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams.entries()));
-  if (!parsed.success) return fail(parsed.error.message);
+  if (!parsed.success) return fail(parsed.error.message, 400);
 
   const managerRecords = await db.select().from(managers);
 
