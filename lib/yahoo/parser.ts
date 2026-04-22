@@ -10,7 +10,8 @@ import type {
   TransactionInsert,
 } from "@/lib/db/schema";
 
-const asRecord = (value: unknown): Record<string, unknown> => (typeof value === "object" && value ? value as Record<string, unknown> : {});
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 const asString = (value: unknown, fallback = ""): string => (value == null ? fallback : String(value));
 const asNumber = (value: unknown, fallback = 0): number => {
   const parsed = Number(value);
