@@ -1,3 +1,5 @@
+import type { Route } from "next";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -7,7 +9,7 @@ interface EmptyStateProps {
   description: string;
   action?: {
     label: string;
-    href?: string;
+    href?: Route;
     onClick?: () => void;
   };
 }
@@ -23,12 +25,12 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
       {action ? (
         <div className="mt-4">
           {action.href ? (
-            <a
+            <Link
               href={action.href}
               className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90"
             >
               {action.label}
-            </a>
+            </Link>
           ) : (
             <Button onClick={action.onClick}>{action.label}</Button>
           )}

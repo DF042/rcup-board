@@ -7,7 +7,7 @@ export function TeamRosterList({ roster }: { roster: RosterPlayer[] }) {
   const rows = [...starters, ...bench];
 
   return (
-    <div className="overflow-x-auto -mx-4 px-4">
+    <div className="table-scroll-wrap">
       <div className="min-w-[640px] overflow-hidden rounded border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left">

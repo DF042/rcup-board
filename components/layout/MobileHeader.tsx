@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-const titleMap: Array<{ match: RegExp; title: string }> = [
-  { match: /^\/dashboard/, title: "Dashboard" },
-  { match: /^\/teams/, title: "Teams" },
-  { match: /^\/managers/, title: "Managers" },
-  { match: /^\/players/, title: "Players" },
-  { match: /^\/matchups/, title: "Matchups" },
-  { match: /^\/seasons/, title: "Seasons" },
-  { match: /^\/import/, title: "Import" },
+const titleMap: Array<{ prefix: string; title: string }> = [
+  { prefix: "/dashboard", title: "Dashboard" },
+  { prefix: "/teams", title: "Teams" },
+  { prefix: "/managers", title: "Managers" },
+  { prefix: "/players", title: "Players" },
+  { prefix: "/matchups", title: "Matchups" },
+  { prefix: "/seasons", title: "Seasons" },
+  { prefix: "/import", title: "Import" },
 ];
 
 export function MobileHeader() {
@@ -21,15 +21,11 @@ export function MobileHeader() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const storedTheme = window.localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const nextDark = storedTheme ? storedTheme === "dark" : prefersDark;
-    root.classList.toggle("dark", nextDark);
-    setIsDark(nextDark);
+    setIsDark(root.classList.contains("dark"));
   }, []);
 
   const title = useMemo(
-    () => titleMap.find((item) => item.match.test(pathname))?.title ?? "RCUP Board",
+    () => titleMap.find((item) => pathname.startsWith(item.prefix))?.title ?? "RCUP Board",
     [pathname],
   );
 
@@ -58,7 +54,11 @@ export function MobileHeader() {
         >
           {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold"
+          aria-label="User profile"
+          role="img"
+        >
           U
         </div>
       </div>

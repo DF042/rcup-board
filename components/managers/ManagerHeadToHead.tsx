@@ -40,7 +40,7 @@ export function ManagerHeadToHead({
       </div>
       <p className="text-center text-xs text-muted-foreground">{manager1Name} win rate: {rate}%</p>
 
-      <div className="overflow-x-auto -mx-4 px-4">
+      <div className="table-scroll-wrap">
         <div className="min-w-[560px] overflow-hidden rounded border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left">

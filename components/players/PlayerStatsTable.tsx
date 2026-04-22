@@ -33,7 +33,7 @@ export function PlayerStatsTable({ players, total, page, pageSize }: { players: 
 
   return (
     <div className="space-y-2">
-      <div className="overflow-x-auto -mx-4 px-4">
+      <div className="table-scroll-wrap">
         <div className="min-w-[760px] overflow-hidden rounded border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left">

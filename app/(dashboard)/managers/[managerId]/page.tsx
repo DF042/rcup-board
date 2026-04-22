@@ -75,7 +75,7 @@ export default async function ManagerDetailPage({
       {tab === "history" ? (
         <div className="space-y-3">
           <ManagerHistoryChart seasons={manager.seasons.map((row) => ({ season: row.season, rank: row.rank, wins: row.wins, losses: row.losses }))} />
-          <div className="overflow-x-auto -mx-4 px-4">
+          <div className="table-scroll-wrap">
             <div className="min-w-[640px] overflow-hidden rounded border">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 text-left">
@@ -107,7 +107,7 @@ export default async function ManagerDetailPage({
       ) : null}
 
       {tab === "players" ? (
-        <div className="overflow-x-auto -mx-4 px-4">
+        <div className="table-scroll-wrap">
           <div className="min-w-[560px] overflow-hidden rounded border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">

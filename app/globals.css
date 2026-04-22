@@ -83,4 +83,8 @@ html {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .table-scroll-wrap {
+    @apply -mx-4 overflow-x-auto px-4;
+  }
 }
