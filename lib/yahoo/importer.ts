@@ -39,7 +39,20 @@ export async function importYahooPayload(payload: unknown) {
 
   if (type === "league") {
     const value = parseLeague(payload);
-    await db.insert(leagues).values(value).onConflictDoUpdate({ target: leagues.leagueKey, set: value });
+    await db.insert(leagues).values(value).onConflictDoUpdate({
+      target: leagues.leagueKey,
+      set: {
+        leagueId: sql`excluded.league_id`,
+        season: sql`excluded.season`,
+        name: sql`excluded.name`,
+        sport: sql`excluded.sport`,
+        scoringType: sql`excluded.scoring_type`,
+        numTeams: sql`excluded.num_teams`,
+        settings: sql`excluded.settings`,
+        rawData: sql`excluded.raw_data`,
+        updatedAt: new Date(),
+      },
+    });
     summary.league = 1;
   }
 

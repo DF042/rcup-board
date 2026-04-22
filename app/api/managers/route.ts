@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { leagues, managers, matchups, teams } from "@/lib/db/schema";
@@ -15,34 +15,24 @@ export async function GET(request: Request) {
   const parsed = schema.safeParse(Object.fromEntries(new URL(request.url).searchParams.entries()));
   if (!parsed.success) return fail(parsed.error.message, 400);
 
-  const managerRecords = await db.select().from(managers);
-
-  const records = await Promise.all(
-    managerRecords.map(async (manager) => {
-      const aggregate = await db
-        .select({
-          wins: sql<number>`coalesce(sum(case when ${matchups.winnerTeamId} = ${teams.id} then 1 else 0 end),0)`,
-          losses: sql<number>`coalesce(sum(case when ${matchups.winnerTeamId} is not null and ${matchups.winnerTeamId} <> ${teams.id} then 1 else 0 end),0)`,
-        })
-        .from(teams)
-        .leftJoin(matchups, sql`${teams.id} = ${matchups.team1Id} or ${teams.id} = ${matchups.team2Id}`)
-        .leftJoin(leagues, eq(teams.leagueId, leagues.id))
-        .where(
-          sql`${teams.managerId} = ${manager.id} ${
-            parsed.data.season ? sql`and ${leagues.season} = ${parsed.data.season}` : sql``
-          }`,
-        );
-
-      return {
-        id: manager.id,
-        guid: manager.guid,
-        nickname: manager.nickname,
-        email: manager.email,
-        wins: aggregate[0]?.wins ?? 0,
-        losses: aggregate[0]?.losses ?? 0,
-      };
-    }),
-  );
+  const records = await db
+    .select({
+      id: managers.id,
+      guid: managers.guid,
+      nickname: managers.nickname,
+      email: managers.email,
+      wins: sql<number>`coalesce(sum(case when ${matchups.winnerTeamId} = ${teams.id} then 1 else 0 end),0)`,
+      losses: sql<number>`coalesce(sum(case when ${matchups.winnerTeamId} is not null and ${matchups.winnerTeamId} <> ${teams.id} then 1 else 0 end),0)`,
+    })
+    .from(managers)
+    .leftJoin(teams, eq(teams.managerId, managers.id))
+    .leftJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(
+      matchups,
+      or(eq(matchups.team1Id, teams.id), eq(matchups.team2Id, teams.id)),
+    )
+    .where(parsed.data.season ? eq(leagues.season, parsed.data.season) : undefined)
+    .groupBy(managers.id);
 
   return ok(records);
 }

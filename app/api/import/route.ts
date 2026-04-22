@@ -12,10 +12,15 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const parsed = schema.safeParse(formData.get("file"));
-  if (!parsed.success) return fail("Missing file");
+  if (!parsed.success) return fail("Missing file", 400);
 
   const text = await parsed.data.text();
-  const payload = JSON.parse(text) as unknown;
+  let payload: unknown;
+  try {
+    payload = JSON.parse(text) as unknown;
+  } catch {
+    return fail("Invalid JSON in uploaded file", 400);
+  }
   const result = await importYahooPayload(payload);
 
   return ok(result, 201);

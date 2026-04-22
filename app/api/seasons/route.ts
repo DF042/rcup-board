@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leagues, teams, matchups } from "@/lib/db/schema";
 import { ok, fail } from "@/lib/api/responses";
@@ -17,8 +17,8 @@ export async function GET() {
       matchupCount: sql<number>`count(distinct ${matchups.id})`,
     })
     .from(leagues)
-    .leftJoin(teams, sql`${teams.leagueId} = ${leagues.id}`)
-    .leftJoin(matchups, sql`${matchups.leagueId} = ${leagues.id}`)
+    .leftJoin(teams, eq(teams.leagueId, leagues.id))
+    .leftJoin(matchups, eq(matchups.leagueId, leagues.id))
     .groupBy(leagues.season)
     .orderBy(leagues.season);
 

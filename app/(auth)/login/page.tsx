@@ -49,12 +49,17 @@ export default function LoginPage() {
 
   const onGoogle = async () => {
     setError(null);
+    setLoading(true);
     const supabase = createSupabaseBrowserClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}${nextPath}` },
     });
-    if (oauthError) setError(oauthError.message);
+    if (oauthError) {
+      setError(oauthError.message);
+      setLoading(false);
+    }
+    // On success the browser is redirected by Supabase; no need to reset loading.
   };
 
   return (
@@ -78,7 +83,7 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
-            <Button type="button" variant="outline" className="w-full" onClick={onGoogle}>
+            <Button type="button" variant="outline" className="w-full" onClick={onGoogle} disabled={loading}>
               Sign in with Google
             </Button>
           </form>

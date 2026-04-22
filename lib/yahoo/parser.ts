@@ -56,7 +56,7 @@ export function parseTeams(data: unknown): { teams: TeamInsert[]; managers: Mana
   const rows = list(asRecord(data).teams ?? data);
   const managersByGuid = new Map<string, ManagerInsert>();
   const teams = rows.map((team) => {
-    const manager = list(team.managers)[0];
+    const manager = list(team.managers)[0] ?? {};
     const guid = asString(manager.guid);
     if (guid) {
       managersByGuid.set(guid, {
