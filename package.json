@@ -7,9 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test lib/yahoo/parser.test.ts",
+    "test": "tsx --test lib/yahoo/parser.test.ts scripts/fetch-yahoo.test.ts",
     "typecheck": "tsc --noEmit",
-    "import": "tsx scripts/import-yahoo.ts"
+    "import": "tsx scripts/import-yahoo.ts",
+    "fetch-yahoo": "tsx scripts/fetch-yahoo.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.66",
