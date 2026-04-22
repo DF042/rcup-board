@@ -29,6 +29,14 @@ function list(value: unknown): Record<string, unknown>[] {
   return Object.values(record).map(asRecord);
 }
 
+function normalizePositions(player: Record<string, unknown>): string[] {
+  if (Array.isArray(player.positions)) return player.positions.map((value) => asString(value)).filter(Boolean);
+  if (Array.isArray(player.eligible_positions)) {
+    return player.eligible_positions.map((value) => asString(value)).filter(Boolean);
+  }
+  return [];
+}
+
 export function parseLeague(data: unknown): LeagueInsert {
   const raw = asRecord(data);
   return {
@@ -86,7 +94,7 @@ export function parsePlayers(data: unknown): PlayerInsert[] {
     fullName: asString(player.full_name, "Unknown Player"),
     firstName: asString(player.first_name),
     lastName: asString(player.last_name),
-    positions: (player.positions as string[] | undefined) ?? (player.eligible_positions as string[] | undefined) ?? [],
+    positions: normalizePositions(player),
     nflTeam: asString(player.editorial_team_abbr),
     jerseyNumber: asString(player.uniform_number),
     status: asString(player.status),
