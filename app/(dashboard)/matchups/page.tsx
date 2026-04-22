@@ -1,4 +1,6 @@
 import { MatchupCard } from "@/components/matchups/MatchupCard";
+import { Swords } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getAllSeasons, getCurrentWeek, getMatchups, getRoster } from "@/lib/db/queries";
 
 export const revalidate = 300;
@@ -43,7 +45,13 @@ export default async function MatchupsPage({
           <MatchupCard key={matchup.id} matchup={matchup} leftRoster={rosterMap.get(matchup.team1Id) ?? []} rightRoster={rosterMap.get(matchup.team2Id) ?? []} />
         ))}
       </div>
-      {matchups.length === 0 ? <p className="text-sm text-muted-foreground">No matchups for this week.</p> : null}
+      {matchups.length === 0 ? (
+        <EmptyState
+          icon={Swords}
+          title="No matchups this week"
+          description="Check back after games are played, or select a different week."
+        />
+      ) : null}
     </div>
   );
 }

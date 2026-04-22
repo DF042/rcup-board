@@ -1,12 +1,11 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonCard } from "@/components/ui/SkeletonCard";
 
 export default function Loading() {
   return (
     <div className="space-y-3 py-4">
-      <Skeleton className="h-10 w-40" />
-      <Skeleton className="h-28 w-full" />
-      <Skeleton className="h-64 w-full" />
-      <Skeleton className="h-64 w-full" />
+      {Array.from({ length: 8 }, (_, idx) => (
+        <SkeletonCard key={idx} showAvatar lines={4} />
+      ))}
     </div>
   );
 }

@@ -13,7 +13,7 @@ const links: Array<{ label: string; href: Route }> = [
 
 export function Sidebar() {
   return (
-    <aside className="hidden w-60 shrink-0 border-r bg-card p-4 md:block">
+    <aside className="hidden w-60 shrink-0 border-r bg-card p-4 md:flex md:flex-col">
       <h2 className="mb-6 text-lg font-semibold">RCUP Board</h2>
       <nav className="space-y-1">
         {links.map(({ label, href }) => (

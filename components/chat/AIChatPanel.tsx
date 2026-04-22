@@ -92,6 +92,12 @@ export function AIChatPanel() {
           <div className="mb-3 h-[calc(100%-8rem)] space-y-2 overflow-y-auto rounded border p-2">
             {messages.length === 0 ? (
               <div className="space-y-2 text-sm">
+                <div className="rounded border bg-muted/20 p-3">
+                  <p className="font-medium">Welcome to your AI League Assistant 👋</p>
+                  <p className="text-muted-foreground">
+                    Ask anything about standings, matchups, top scorers, and manager history.
+                  </p>
+                </div>
                 <p className="text-muted-foreground">Try one of these:</p>
                 {suggestions.map((q) => (
                   <button

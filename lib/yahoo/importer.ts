@@ -107,7 +107,18 @@ export async function importYahooPayload(payload: unknown) {
   if (type === "matchups") {
     const parsed = parseMatchups(payload);
     if (parsed.length) {
-      await db.insert(matchups).values(parsed);
+      await db.insert(matchups).values(parsed).onConflictDoUpdate({
+        target: [matchups.leagueId, matchups.week, matchups.team1Id, matchups.team2Id],
+        set: {
+          team1Points: sql`excluded.team1_points`,
+          team2Points: sql`excluded.team2_points`,
+          winnerTeamId: sql`excluded.winner_team_id`,
+          isPlayoffs: sql`excluded.is_playoffs`,
+          isConsolation: sql`excluded.is_consolation`,
+          rawData: sql`excluded.raw_data`,
+          updatedAt: new Date(),
+        },
+      });
       summary.matchups = parsed.length;
     }
   }
@@ -115,7 +126,14 @@ export async function importYahooPayload(payload: unknown) {
   if (type === "rosters") {
     const parsed = parseRosters(payload);
     if (parsed.length) {
-      await db.insert(rosters).values(parsed);
+      await db.insert(rosters).values(parsed).onConflictDoUpdate({
+        target: [rosters.teamId, rosters.playerId, rosters.leagueId, rosters.week],
+        set: {
+          rosterPosition: sql`excluded.roster_position`,
+          isStarting: sql`excluded.is_starting`,
+          updatedAt: new Date(),
+        },
+      });
       summary.rosters = parsed.length;
     }
   }

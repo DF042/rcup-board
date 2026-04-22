@@ -2,7 +2,8 @@ import type { TeamWithManager } from "@/lib/db/queries";
 
 export function TeamStatsTable({ team, leagueAverages }: { team: TeamWithManager; leagueAverages: { pointsFor: number; pointsAgainst: number } }) {
   return (
-    <div className="overflow-hidden rounded border">
+    <div className="table-scroll-wrap">
+      <div className="min-w-[520px] overflow-hidden rounded border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50">
           <tr>
@@ -31,6 +32,7 @@ export function TeamStatsTable({ team, leagueAverages }: { team: TeamWithManager
           </tr>
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

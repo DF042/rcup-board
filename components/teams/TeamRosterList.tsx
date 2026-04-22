@@ -7,7 +7,8 @@ export function TeamRosterList({ roster }: { roster: RosterPlayer[] }) {
   const rows = [...starters, ...bench];
 
   return (
-    <div className="overflow-hidden rounded border">
+    <div className="table-scroll-wrap">
+      <div className="min-w-[640px] overflow-hidden rounded border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left">
           <tr>
@@ -45,6 +46,7 @@ export function TeamRosterList({ roster }: { roster: RosterPlayer[] }) {
           ) : null}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
