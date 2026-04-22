@@ -65,7 +65,7 @@ export default async function ManagerDetailPage({
               winRate: summary ? Number(((summary.totalWins / Math.max(1, summary.totalWins + summary.totalLosses + summary.totalTies)) * 100).toFixed(2)) : 0,
               avgPF: summary?.avgPointsFor ?? 0,
               consistency: summary ? Number((100 / Math.max(1, summary.worstFinish ?? 1)).toFixed(2)) : 0,
-              bestSeasonRank: summary?.bestFinish && summary.bestFinish > 0 ? 100 / summary.bestFinish : 0,
+              bestSeasonRank: summary?.bestFinish ? 100 / summary.bestFinish : 0,
               transactionActivity: manager.seasons.length,
             }}
           />
