@@ -1,3 +1,4 @@
+import { AIChatPanel } from "@/components/chat/AIChatPanel";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -14,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <main className="flex-1 px-4 pb-6 md:px-6">{children}</main>
       </div>
+      <AIChatPanel />
       <BottomNav />
     </div>
   );
