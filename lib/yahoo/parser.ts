@@ -16,6 +16,10 @@ const asNumber = (value: unknown, fallback = 0): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+const asNullableNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  return asNumber(value);
+};
 const asBool = (value: unknown): boolean => value === true || value === "1" || value === 1;
 
 function list(value: unknown): Record<string, unknown>[] {
@@ -105,7 +109,7 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
         team2Id: asNumber(team2.team_id ?? team2.id),
         team1Points: asString(asRecord(team1.team_points).total, "0"),
         team2Points: asString(asRecord(team2.team_points).total, "0"),
-        winnerTeamId: asNumber(matchup.winner_team_id, 0) || null,
+        winnerTeamId: asNullableNumber(matchup.winner_team_id),
         isPlayoffs: asBool(matchup.is_playoffs),
         isConsolation: asBool(matchup.is_consolation),
         rawData: matchup,
@@ -131,8 +135,8 @@ export function parsePlayerStats(data: unknown): PlayerStatInsert[] {
   return rows.map((stat) => ({
     playerId: asNumber(stat.player_id),
     leagueId: asNumber(stat.league_id),
-    teamId: asNumber(stat.team_id, 0) || null,
-    week: asNumber(stat.week, 0) || null,
+    teamId: asNullableNumber(stat.team_id),
+    week: asNullableNumber(stat.week),
     season: asNumber(stat.season),
     statValues: asRecord(stat.stat_values),
     points: asString(stat.points, "0"),
