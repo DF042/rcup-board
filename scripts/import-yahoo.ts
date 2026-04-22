@@ -25,7 +25,7 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error(
       "DATABASE_URL is not set. Add it to your .env.local file.\n" +
-        "Example: DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres",
+        "Example format: DATABASE_URL=<your-postgres-connection-string>",
     );
   }
 

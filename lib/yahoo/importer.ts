@@ -38,7 +38,10 @@ export async function importYahooPayload(payload: unknown) {
   };
 
   if (type === "unknown") {
-    console.warn("Warning: could not detect data type from payload. No data was imported.");
+    console.warn(
+      "Warning: could not detect data type from payload. No data was imported. " +
+        "Expected payload keys like league_key, teams, players, matchups, rosters, player_stats, or transactions.",
+    );
   }
 
   if (type === "league") {
