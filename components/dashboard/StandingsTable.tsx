@@ -1,8 +1,100 @@
-export function StandingsTable() {
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { StandingRow } from "@/lib/db/queries";
+
+type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst";
+
+export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[]; playoffCutoff?: number }) {
+  const router = useRouter();
+  const [sortBy, setSortBy] = useState<SortKey>("rank");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const sorted = useMemo(() => {
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const first = a[sortBy] ?? 0;
+      const second = b[sortBy] ?? 0;
+      if (typeof first === "string" || typeof second === "string") {
+        return `${first}`.localeCompare(`${second}`) * (sortDir === "asc" ? 1 : -1);
+      }
+      return ((Number(first) || 0) - (Number(second) || 0)) * (sortDir === "asc" ? 1 : -1);
+    });
+    return copy;
+  }, [rows, sortBy, sortDir]);
+
+  const onSort = (key: SortKey) => {
+    if (sortBy === key) setSortDir((value) => (value === "asc" ? "desc" : "asc"));
+    else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+  };
+
   return (
-    <div className="rounded border p-4">
-      <h3 className="mb-2 font-semibold">Standings</h3>
-      <p className="text-sm text-muted-foreground">No standings loaded.</p>
+    <div className="overflow-hidden rounded border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left">
+          <tr>
+            {[
+              ["rank", "Rank"],
+              ["teamName", "Team Name"],
+              ["managerNickname", "Manager"],
+              ["wins", "W"],
+              ["losses", "L"],
+              ["ties", "T"],
+              ["pointsFor", "PF"],
+              ["pointsAgainst", "PA"],
+            ].map(([key, label]) => (
+              <th key={key} className={`px-2 py-2 ${key === "pointsAgainst" ? "hidden md:table-cell" : ""}`}>
+                <button type="button" className="font-medium" onClick={() => onSort(key as SortKey)}>
+                  {label}
+                </button>
+              </th>
+            ))}
+            <th className="hidden px-2 py-2 md:table-cell">Diff</th>
+            <th className="hidden px-2 py-2 md:table-cell">Streak</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((row) => {
+            const isFirst = row.rank === 1;
+            const isLast = row.rank === sorted.length;
+            const inPlayoffs = row.rank <= playoffCutoff;
+            return (
+              <tr
+                key={row.teamId}
+                className={`cursor-pointer border-t hover:bg-muted/30 ${isFirst ? "bg-amber-50" : ""} ${isLast ? "bg-red-50/40" : ""} ${inPlayoffs ? "border-l-2 border-l-dashed border-l-emerald-500" : ""}`}
+                onClick={() => router.push(`/teams/${row.teamKey}`)}
+              >
+                <td className="px-2 py-2">{row.rank}</td>
+                <td className="px-2 py-2">
+                  <div className="flex items-center gap-2">
+                    {row.logoUrl ? <img src={row.logoUrl} alt={row.teamName} className="h-5 w-5 rounded-full" /> : <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px]">{row.teamName.slice(0, 2)}</span>}
+                    <span>{row.teamName}</span>
+                  </div>
+                </td>
+                <td className="px-2 py-2">{row.managerNickname ?? "—"}</td>
+                <td className="px-2 py-2">{row.wins}</td>
+                <td className="px-2 py-2">{row.losses}</td>
+                <td className="px-2 py-2">{row.ties}</td>
+                <td className="px-2 py-2">{row.pointsFor.toFixed(2)}</td>
+                <td className="hidden px-2 py-2 md:table-cell">{row.pointsAgainst.toFixed(2)}</td>
+                <td className="hidden px-2 py-2 md:table-cell">{(row.pointsFor - row.pointsAgainst).toFixed(2)}</td>
+                <td className="hidden px-2 py-2 md:table-cell">{row.streak ?? "—"}</td>
+              </tr>
+            );
+          })}
+          {sorted.length === 0 ? (
+            <tr>
+              <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
+                No standings data available.
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
     </div>
   );
 }
