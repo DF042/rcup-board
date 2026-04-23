@@ -182,10 +182,16 @@ export function parseTransactions(data: unknown): TransactionInsert[] {
 
 export function parseStatCategories(data: unknown): StatCategoryInsert[] {
   const root = asRecord(data);
-  const source =
-    root.stat_categories ??
-    asRecord(root.settings).stat_categories ??
-    (Array.isArray(data) ? data : root.stat_id ? [root] : []);
+  let source: unknown = root.stat_categories ?? asRecord(root.settings).stat_categories;
+  if (source === undefined) {
+    if (Array.isArray(data)) {
+      source = data;
+    } else if (root.stat_id) {
+      source = [root];
+    } else {
+      source = [];
+    }
+  }
   const rows = list(source);
   const deduped = new Map<string, StatCategoryInsert>();
 
