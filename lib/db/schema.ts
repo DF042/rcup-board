@@ -148,6 +148,7 @@ export const transactions = pgTable("transactions", {
   players: jsonb("players"),
   rawData: jsonb("raw_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const statCategories = pgTable(
@@ -160,6 +161,8 @@ export const statCategories = pgTable(
     displayName: text("display_name"),
     sortOrder: integer("sort_order"),
     isOnlyDisplayStat: boolean("is_only_display_stat").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [uniqueIndex("stat_categories_unique").on(table.leagueId, table.statId)],
 );

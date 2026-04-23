@@ -55,52 +55,57 @@ export function parseLeague(data: unknown): LeagueInsert {
 export function parseTeams(data: unknown): { teams: TeamInsert[]; managers: ManagerInsert[] } {
   const rows = list(asRecord(data).teams ?? data);
   const managersByGuid = new Map<string, ManagerInsert>();
-  const teams = rows.map((team) => {
-    const manager = list(team.managers)[0] ?? {};
-    const guid = asString(manager.guid);
-    if (guid) {
-      managersByGuid.set(guid, {
-        guid,
-        nickname: asString(manager.nickname, "Manager"),
-        email: asString(manager.email),
-        imageUrl: asString(manager.image_url),
-      });
-    }
+  const teams = rows
+    .map((team) => {
+      const manager = list(team.managers)[0] ?? {};
+      const guid = asString(manager.guid);
+      if (guid) {
+        managersByGuid.set(guid, {
+          guid,
+          nickname: asString(manager.nickname, "Manager"),
+          email: asString(manager.email),
+          imageUrl: asString(manager.image_url),
+        });
+      }
 
-    return {
-      teamKey: asString(team.team_key),
-      teamId: asString(team.team_id),
-      leagueId: asNumber(team.league_id),
-      name: asString(team.name, "Team"),
-      logoUrl: asString(team.logo_url),
-      waiverPriority: asNumber(team.waiver_priority),
-      faabBalance: asNumber(team.faab_balance),
-      numberOfMoves: asNumber(team.number_of_moves),
-      numberOfTrades: asNumber(team.number_of_trades),
-      standings: asRecord(team.standings),
-      draftResults: asRecord(team.draft_results),
-      rawData: team,
-    };
-  });
+      return {
+        teamKey: asString(team.team_key),
+        teamId: asString(team.team_id),
+        // TODO: leagueId currently stores Yahoo league_id, but teams.leagueId FK points to leagues.id.
+        leagueId: asNumber(team.league_id),
+        name: asString(team.name, "Team"),
+        logoUrl: asString(team.logo_url),
+        waiverPriority: asNumber(team.waiver_priority),
+        faabBalance: asNumber(team.faab_balance),
+        numberOfMoves: asNumber(team.number_of_moves),
+        numberOfTrades: asNumber(team.number_of_trades),
+        standings: asRecord(team.standings),
+        draftResults: asRecord(team.draft_results),
+        rawData: team,
+      };
+    })
+    .filter((team) => Boolean(team.teamKey) && team.leagueId !== 0);
 
   return { teams, managers: [...managersByGuid.values()] };
 }
 
 export function parsePlayers(data: unknown): PlayerInsert[] {
   const rows = list(asRecord(data).players ?? data);
-  return rows.map((player) => ({
-    playerKey: asString(player.player_key),
-    playerId: asString(player.player_id),
-    fullName: asString(player.full_name, "Unknown Player"),
-    firstName: asString(player.first_name),
-    lastName: asString(player.last_name),
-    positions: normalizePositions(player),
-    nflTeam: asString(player.editorial_team_abbr),
-    jerseyNumber: asString(player.uniform_number),
-    status: asString(player.status),
-    headshotUrl: asString(asRecord(player.headshot).url),
-    rawData: player,
-  }));
+  return rows
+    .map((player) => ({
+      playerKey: asString(player.player_key),
+      playerId: asString(player.player_id),
+      fullName: asString(player.full_name, "Unknown Player"),
+      firstName: asString(player.first_name),
+      lastName: asString(player.last_name),
+      positions: normalizePositions(player),
+      nflTeam: asString(player.editorial_team_abbr),
+      jerseyNumber: asString(player.uniform_number),
+      status: asString(player.status),
+      headshotUrl: asString(asRecord(player.headshot).url),
+      rawData: player,
+    }))
+    .filter((player) => Boolean(player.playerKey));
 }
 
 export function parseMatchups(data: unknown): MatchupInsert[] {
@@ -112,6 +117,7 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
       const team2 = teams[1] ?? {};
 
       return {
+        // TODO: leagueId currently stores Yahoo league_id, but matchups.leagueId FK points to leagues.id.
         leagueId: asNumber(matchup.league_id),
         week: asNumber(matchup.week),
         team1Id: asNumber(team1.team_id ?? team1.id),
@@ -129,52 +135,79 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
 
 export function parseRosters(data: unknown): RosterInsert[] {
   const rows = list(asRecord(data).rosters ?? data);
-  return rows.map((roster) => ({
-    teamId: asNumber(roster.team_id),
-    playerId: asNumber(roster.player_id),
-    leagueId: asNumber(roster.league_id),
-    week: asNumber(roster.week),
-    rosterPosition: asString(roster.roster_position),
-    isStarting: asBool(roster.is_starting),
-  }));
+  return rows
+    .map((roster) => ({
+      teamId: asNumber(roster.team_id),
+      playerId: asNumber(roster.player_id),
+      // TODO: leagueId currently stores Yahoo league_id, but rosters.leagueId FK points to leagues.id.
+      leagueId: asNumber(roster.league_id),
+      week: asNumber(roster.week),
+      rosterPosition: asString(roster.roster_position),
+      isStarting: asBool(roster.is_starting),
+    }))
+    .filter((roster) => roster.teamId !== 0 && roster.playerId !== 0);
 }
 
 export function parsePlayerStats(data: unknown): PlayerStatInsert[] {
   const rows = list(asRecord(data).player_stats ?? data);
-  return rows.map((stat) => ({
-    playerId: asNumber(stat.player_id),
-    leagueId: asNumber(stat.league_id),
-    teamId: asNullableNumber(stat.team_id),
-    week: asNullableNumber(stat.week),
-    season: asNumber(stat.season),
-    statValues: asRecord(stat.stat_values),
-    points: asString(stat.points, "0"),
-  }));
+  return rows
+    .map((stat) => ({
+      playerId: asNumber(stat.player_id),
+      // TODO: leagueId currently stores Yahoo league_id, but playerStats.leagueId FK points to leagues.id.
+      leagueId: asNumber(stat.league_id),
+      teamId: asNullableNumber(stat.team_id),
+      week: asNullableNumber(stat.week),
+      season: asNumber(stat.season),
+      statValues: asRecord(stat.stat_values),
+      points: asString(stat.points, "0"),
+    }))
+    .filter((stat) => stat.playerId !== 0 && stat.season !== 0);
 }
 
 export function parseTransactions(data: unknown): TransactionInsert[] {
   const rows = list(asRecord(data).transactions ?? data);
-  return rows.map((tx) => ({
-    leagueId: asNumber(tx.league_id),
-    transactionKey: asString(tx.transaction_key),
-    type: asString(tx.type, "add"),
-    status: asString(tx.status),
-    transactionTimestamp: asNumber(tx.timestamp),
-    players: Array.isArray(tx.players) ? tx.players : [],
-    rawData: tx,
-  }));
+  return rows
+    .map((tx) => ({
+      // TODO: leagueId currently stores Yahoo league_id, but transactions.leagueId FK points to leagues.id.
+      leagueId: asNumber(tx.league_id),
+      transactionKey: asString(tx.transaction_key),
+      type: asString(tx.type, "add"),
+      status: asString(tx.status),
+      transactionTimestamp: asNumber(tx.timestamp),
+      players: Array.isArray(tx.players) ? tx.players : [],
+      rawData: tx,
+    }))
+    .filter((tx) => Boolean(tx.transactionKey));
 }
 
 export function parseStatCategories(data: unknown): StatCategoryInsert[] {
-  const rows = list(asRecord(data).stat_categories ?? data);
-  return rows.map((stat) => ({
-    leagueId: asNumber(stat.league_id),
-    statId: asString(stat.stat_id),
-    name: asString(stat.name),
-    displayName: asString(stat.display_name),
-    sortOrder: asNumber(stat.sort_order),
-    isOnlyDisplayStat: asBool(stat.is_only_display_stat),
-  }));
+  const root = asRecord(data);
+  const source =
+    root.stat_categories ??
+    asRecord(root.settings).stat_categories ??
+    (Array.isArray(data) ? data : root.stat_id ? [root] : []);
+  const rows = list(source);
+  const deduped = new Map<string, StatCategoryInsert>();
+
+  for (const stat of rows) {
+    const parsed = {
+      // TODO: leagueId currently stores Yahoo league_id, but statCategories.leagueId FK points to leagues.id.
+      leagueId: asNumber(stat.league_id),
+      statId: asString(stat.stat_id),
+      name: asString(stat.name),
+      displayName: asString(stat.display_name),
+      sortOrder: asNumber(stat.sort_order),
+      isOnlyDisplayStat: asBool(stat.is_only_display_stat),
+    } satisfies StatCategoryInsert;
+
+    if (parsed.leagueId === 0 || parsed.statId === "") {
+      continue;
+    }
+
+    deduped.set(`${parsed.leagueId}:${parsed.statId}`, parsed);
+  }
+
+  return [...deduped.values()];
 }
 
 export function detectDataType(data: unknown) {

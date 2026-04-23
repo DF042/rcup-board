@@ -61,6 +61,25 @@ export async function importYahooPayload(payload: unknown) {
       },
     });
     summary.league = 1;
+
+    const categoriesMap = new Map<string, ReturnType<typeof parseStatCategories>[number]>();
+    for (const category of parseStatCategories(payload)) {
+      categoriesMap.set(`${category.leagueId}:${category.statId}`, category);
+    }
+    const categories = [...categoriesMap.values()];
+    if (categories.length) {
+      await db.insert(statCategories).values(categories).onConflictDoUpdate({
+        target: [statCategories.leagueId, statCategories.statId],
+        set: {
+          name: sql`excluded.name`,
+          displayName: sql`excluded.display_name`,
+          sortOrder: sql`excluded.sort_order`,
+          isOnlyDisplayStat: sql`excluded.is_only_display_stat`,
+          updatedAt: new Date(),
+        },
+      });
+      summary.statCategories = categories.length;
+    }
   }
 
   if (type === "teams") {
@@ -169,24 +188,11 @@ export async function importYahooPayload(payload: unknown) {
           status: sql`excluded.status`,
           players: sql`excluded.players`,
           rawData: sql`excluded.raw_data`,
+          updatedAt: new Date(),
         },
       });
       summary.transactions = parsed.length;
     }
-  }
-
-  const categories = parseStatCategories(payload);
-  if (categories.length) {
-    await db.insert(statCategories).values(categories).onConflictDoUpdate({
-      target: [statCategories.leagueId, statCategories.statId],
-      set: {
-        name: sql`excluded.name`,
-        displayName: sql`excluded.display_name`,
-        sortOrder: sql`excluded.sort_order`,
-        isOnlyDisplayStat: sql`excluded.is_only_display_stat`,
-      },
-    });
-    summary.statCategories = categories.length;
   }
 
   return { type, summary };
