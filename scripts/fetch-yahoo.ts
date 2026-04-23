@@ -378,11 +378,6 @@ function getFirstLeagueRoot(response: JsonRecord): JsonRecord {
   return {};
 }
 
-function isNumericKeyedObject(record: JsonRecord): boolean {
-  const keys = Object.keys(record).filter((k) => k !== "count");
-  return keys.length > 0 && keys.every((k) => /^\d+$/.test(k));
-}
-
 function flattenNode(node: unknown): JsonRecord {
   if (Array.isArray(node)) {
     const merged: JsonRecord = {};
@@ -404,14 +399,21 @@ function flattenNode(node: unknown): JsonRecord {
   }
 
   const record = asRecord(node);
-  if (isNumericKeyedObject(record)) {
-    const values = Object.entries(record)
-      .filter(([k]) => k !== "count")
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([, v]) => v);
-    return flattenNode(values);
+  const numericKeys = Object.keys(record).filter((k) => k !== "count" && /^\d+$/.test(k));
+  const nonNumericKeys = Object.keys(record).filter((k) => k !== "count" && !/^\d+$/.test(k));
+
+  if (numericKeys.length === 0) return record;
+
+  const numericValues = numericKeys
+    .sort((a, b) => Number(a) - Number(b))
+    .map((k) => record[k]);
+  const merged = flattenNode(numericValues);
+
+  for (const key of nonNumericKeys) {
+    merged[key] = record[key];
   }
-  return record;
+
+  return merged;
 }
 
 function extractManagers(teamNode: JsonRecord): JsonRecord[] {
