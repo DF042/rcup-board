@@ -26,6 +26,10 @@ describe("fetch-yahoo script", () => {
     assert.equal(__private.resolveLeagueKey("470.l.16883", 2024), "449.l.16883");
   });
 
+  it("uses league id segment after the last .l. marker", () => {
+    assert.equal(__private.resolveLeagueKey("foo.l.bar.l.16883", 2024), "449.l.16883");
+  });
+
   it("passes through league key for unknown seasons", () => {
     assert.equal(__private.resolveLeagueKey("470.l.16883", 2099), "470.l.16883");
   });

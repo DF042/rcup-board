@@ -33,6 +33,7 @@ const DEFAULT_WEEKS = 18;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 const RATE_LIMIT_DELAY_MS = 300;
 const NON_STARTING_POSITIONS = new Set(["BN", "IR"]);
+const LEAGUE_KEY_SEPARATOR = ".l.";
 const NFL_GAME_KEYS: Record<string, string> = {
   "2025": "461",
   "2024": "449",
@@ -618,7 +619,9 @@ function resolveLeagueKey(leagueArg: string, season: number | undefined): string
     return leagueArg;
   }
 
-  const leagueId = leagueArg.includes(".l.") ? leagueArg.split(".l.")[1] : leagueArg;
+  const leagueId = leagueArg.includes(LEAGUE_KEY_SEPARATOR)
+    ? leagueArg.slice(leagueArg.lastIndexOf(LEAGUE_KEY_SEPARATOR) + LEAGUE_KEY_SEPARATOR.length)
+    : leagueArg;
   const corrected = `${gameKey}.l.${leagueId}`;
 
   if (corrected !== leagueArg) {
