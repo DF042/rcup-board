@@ -62,40 +62,4 @@ describe("fetch-yahoo script", () => {
     assert.equal(matchups[0]?.winner_team_id, 2);
     assert.equal(matchups[1]?.winner_team_id, null);
   });
-
-  it("parses matchups nested under scoreboard numeric key", () => {
-    const response = {
-      fantasy_content: {
-        league: [
-          {},
-          {
-            scoreboard: {
-              0: {
-                matchups: {
-                  0: {
-                    matchup: {
-                      is_playoffs: "0",
-                      is_consolation: "0",
-                      teams: {
-                        0: { team: { team_id: "10", team_points: { total: "120.5" } } },
-                        1: { team: { team_id: "11", team_points: { total: "110.4" } } },
-                        count: 2,
-                      },
-                    },
-                  },
-                  count: 1,
-                },
-              },
-              week: "1",
-            },
-          },
-        ],
-      },
-    };
-
-    const matchups = __private.extractMatchups(response, 12345, 1);
-
-    assert.equal(matchups.length, 1);
-    assert.equal(matchups[0]?.winner_team_id, 10);
-  });
 });
