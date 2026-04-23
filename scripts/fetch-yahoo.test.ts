@@ -12,6 +12,12 @@ describe("fetch-yahoo script", () => {
     assert.equal(path.basename(parsed.out), "data");
   });
 
+  it("parses debug CLI flag", () => {
+    const parsed = __private.parseArgs(["--league", "nfl.l.12345", "--debug"]);
+
+    assert.equal(parsed.debug, true);
+  });
+
   it("derives matchup winner_team_id from team_points totals", () => {
     const response = {
       fantasy_content: {
