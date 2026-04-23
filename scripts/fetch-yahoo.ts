@@ -378,6 +378,11 @@ function getFirstLeagueRoot(response: JsonRecord): JsonRecord {
   return {};
 }
 
+function isNumericKeyedObject(record: JsonRecord): boolean {
+  const keys = Object.keys(record).filter((k) => k !== "count");
+  return keys.length > 0 && keys.every((k) => /^\d+$/.test(k));
+}
+
 function flattenNode(node: unknown): JsonRecord {
   if (Array.isArray(node)) {
     const merged: JsonRecord = {};
@@ -398,7 +403,15 @@ function flattenNode(node: unknown): JsonRecord {
     return merged;
   }
 
-  return asRecord(node);
+  const record = asRecord(node);
+  if (isNumericKeyedObject(record)) {
+    const values = Object.entries(record)
+      .filter(([k]) => k !== "count")
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, v]) => v);
+    return flattenNode(values);
+  }
+  return record;
 }
 
 function extractManagers(teamNode: JsonRecord): JsonRecord[] {

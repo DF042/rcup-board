@@ -35,36 +35,62 @@ describe("fetch-yahoo script", () => {
   });
 
   it("derives matchup winner_team_id from team_points totals", () => {
+    // Mirrors the real Yahoo API structure: matchup is a numeric-keyed object,
+    // not a flat object, and team entries are wrapped in numeric-keyed objects.
     const response = {
       fantasy_content: {
         league: [
           {},
           {
             scoreboard: {
-              matchups: {
-                0: {
-                  matchup: {
-                    is_playoffs: "0",
-                    is_consolation: "0",
-                    teams: {
-                      0: { team: [{ team_id: "1" }, { team_points: { total: "98.5" } }] },
-                      1: { team: [{ team_id: "2" }, { team_points: { total: "101.2" } }] },
-                      count: 2,
+              "0": {
+                matchups: {
+                  "0": {
+                    matchup: {
+                      "0": {
+                        teams: {
+                          "0": {
+                            team: [
+                              [{ team_key: "449.l.495396.t.1" }, { team_id: "1" }],
+                              { team_points: { total: "98.5" } },
+                            ],
+                          },
+                          "1": {
+                            team: [
+                              [{ team_key: "449.l.495396.t.2" }, { team_id: "2" }],
+                              { team_points: { total: "101.2" } },
+                            ],
+                          },
+                          count: 2,
+                        },
+                      },
+                      "1": { week: "1", is_playoffs: "0", is_consolation: "0", status: "postevent" },
                     },
                   },
-                },
-                1: {
-                  matchup: {
-                    is_playoffs: "0",
-                    is_consolation: "0",
-                    teams: {
-                      0: { team: [{ team_id: "3" }, { team_points: { total: "110.0" } }] },
-                      1: { team: [{ team_id: "4" }, { team_points: { total: "110.0" } }] },
-                      count: 2,
+                  "1": {
+                    matchup: {
+                      "0": {
+                        teams: {
+                          "0": {
+                            team: [
+                              [{ team_key: "449.l.495396.t.3" }, { team_id: "3" }],
+                              { team_points: { total: "110.0" } },
+                            ],
+                          },
+                          "1": {
+                            team: [
+                              [{ team_key: "449.l.495396.t.4" }, { team_id: "4" }],
+                              { team_points: { total: "110.0" } },
+                            ],
+                          },
+                          count: 2,
+                        },
+                      },
+                      "1": { week: "1", is_playoffs: "0", is_consolation: "0", status: "postevent" },
                     },
                   },
+                  count: 2,
                 },
-                count: 2,
               },
             },
           },
@@ -84,5 +110,8 @@ describe("fetch-yahoo script", () => {
     assert.ok(teams0[0]?.team_points?.total, "first team should have a non-empty team_points.total");
     assert.ok(teams0[1]?.team_id, "second team should have a non-empty team_id");
     assert.ok(teams0[1]?.team_points?.total, "second team should have a non-empty team_points.total");
+
+    assert.equal(matchups[0]?.is_playoffs, false);
+    assert.equal(matchups[0]?.week, 1);
   });
 });
