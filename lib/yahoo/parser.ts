@@ -98,13 +98,19 @@ export function parseLeague(data: unknown): LeagueInsert {
   };
 }
 
-export function parseTeams(data: unknown): { teams: TeamInsert[]; managers: ManagerInsert[] } {
+export function parseTeams(data: unknown): {
+  teams: TeamInsert[];
+  managers: ManagerInsert[];
+  teamKeyToManagerGuid: Map<string, string>;
+} {
   const rows = list(asRecord(data).teams ?? data);
   const managersByGuid = new Map<string, ManagerInsert>();
+  const teamKeyToManagerGuid = new Map<string, string>();
   const teams = rows
     .map((team) => {
       const manager = list(team.managers)[0] ?? {};
       const guid = asString(manager.guid);
+      const teamKey = asString(team.team_key);
       if (guid) {
         managersByGuid.set(guid, {
           guid,
@@ -112,12 +118,14 @@ export function parseTeams(data: unknown): { teams: TeamInsert[]; managers: Mana
           email: asString(manager.email),
           imageUrl: asString(manager.image_url),
         });
+        if (teamKey) {
+          teamKeyToManagerGuid.set(teamKey, guid);
+        }
       }
 
       return {
-        teamKey: asString(team.team_key),
+        teamKey,
         teamId: asString(team.team_id),
-        // TODO: leagueId currently stores Yahoo league_id, but teams.leagueId FK points to leagues.id.
         leagueId: asNumber(team.league_id),
         name: asString(team.name, "Team"),
         logoUrl: asString(team.logo_url),
@@ -132,7 +140,7 @@ export function parseTeams(data: unknown): { teams: TeamInsert[]; managers: Mana
     })
     .filter((team) => Boolean(team.teamKey) && team.leagueId !== 0);
 
-  return { teams, managers: [...managersByGuid.values()] };
+  return { teams, managers: [...managersByGuid.values()], teamKeyToManagerGuid };
 }
 
 export function parsePlayers(data: unknown): PlayerInsert[] {
@@ -160,7 +168,6 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
   if (root.fantasy_content) {
     const sections = getYahooLeagueSections(data);
     const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
-    // TODO: leagueId currently stores Yahoo league_id, but matchups.leagueId FK points to leagues.id.
     const leagueId = asNumber(leagueRoot.league_id);
     const scoreboardSection = sections.find((s) => s.scoreboard);
     if (!scoreboardSection) return [];
@@ -209,7 +216,6 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
       const team2 = teams[1] ?? {};
 
       return {
-        // TODO: leagueId currently stores Yahoo league_id, but matchups.leagueId FK points to leagues.id.
         leagueId: asNumber(matchup.league_id),
         week: asNumber(matchup.week),
         team1Id: asNumber(team1.team_id ?? team1.id),
@@ -231,7 +237,6 @@ export function parseRosters(data: unknown): RosterInsert[] {
   if (root.fantasy_content) {
     const sections = getYahooLeagueSections(data);
     const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
-    // TODO: leagueId currently stores Yahoo league_id, but rosters.leagueId FK points to leagues.id.
     const leagueId = asNumber(leagueRoot.league_id);
     const teamsSection = sections.find((s) => Object.keys(asRecord(s.teams)).length > 0);
     if (!teamsSection) return [];
@@ -269,7 +274,6 @@ export function parseRosters(data: unknown): RosterInsert[] {
     .map((roster) => ({
       teamId: asNumber(roster.team_id),
       playerId: asNumber(roster.player_id),
-      // TODO: leagueId currently stores Yahoo league_id, but rosters.leagueId FK points to leagues.id.
       leagueId: asNumber(roster.league_id),
       week: asNumber(roster.week),
       rosterPosition: asString(roster.roster_position),
@@ -283,7 +287,6 @@ export function parsePlayerStats(data: unknown): PlayerStatInsert[] {
   return rows
     .map((stat) => ({
       playerId: asNumber(stat.player_id),
-      // TODO: leagueId currently stores Yahoo league_id, but playerStats.leagueId FK points to leagues.id.
       leagueId: asNumber(stat.league_id),
       teamId: asNullableNumber(stat.team_id),
       week: asNullableNumber(stat.week),
@@ -300,7 +303,6 @@ export function parseTransactions(data: unknown): TransactionInsert[] {
   if (root.fantasy_content) {
     const sections = getYahooLeagueSections(data);
     const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
-    // TODO: leagueId currently stores Yahoo league_id, but transactions.leagueId FK points to leagues.id.
     const leagueId = asNumber(leagueRoot.league_id);
     const txSection = sections.find((s) => s.transactions);
     if (!txSection) return [];
@@ -324,7 +326,6 @@ export function parseTransactions(data: unknown): TransactionInsert[] {
   const rows = list(root.transactions ?? data);
   return rows
     .map((tx) => ({
-      // TODO: leagueId currently stores Yahoo league_id, but transactions.leagueId FK points to leagues.id.
       leagueId: asNumber(tx.league_id),
       transactionKey: asString(tx.transaction_key),
       type: asString(tx.type, "add"),
@@ -353,7 +354,6 @@ export function parseStatCategories(data: unknown): StatCategoryInsert[] {
 
   for (const stat of rows) {
     const parsed = {
-      // TODO: leagueId currently stores Yahoo league_id, but statCategories.leagueId FK points to leagues.id.
       leagueId: asNumber(stat.league_id),
       statId: asString(stat.stat_id),
       name: asString(stat.name),
