@@ -35,8 +35,9 @@ describe("fetch-yahoo script", () => {
   });
 
   it("derives matchup winner_team_id from team_points totals", () => {
-    // Mirrors the real Yahoo API structure: matchup is a numeric-keyed object,
-    // not a flat object, and team entries are wrapped in numeric-keyed objects.
+    // Mirrors the real Yahoo API structure: matchup has mixed keys — numeric key
+    // "0" containing teams, plus string metadata keys (week, is_playoffs, etc.)
+    // coexisting at the same level.
     const response = {
       fantasy_content: {
         league: [
@@ -64,7 +65,10 @@ describe("fetch-yahoo script", () => {
                           count: 2,
                         },
                       },
-                      "1": { week: "1", is_playoffs: "0", is_consolation: "0", status: "postevent" },
+                      week: "1",
+                      is_playoffs: "0",
+                      is_consolation: "0",
+                      status: "postevent",
                     },
                   },
                   "1": {
@@ -86,7 +90,10 @@ describe("fetch-yahoo script", () => {
                           count: 2,
                         },
                       },
-                      "1": { week: "1", is_playoffs: "0", is_consolation: "0", status: "postevent" },
+                      week: "1",
+                      is_playoffs: "0",
+                      is_consolation: "0",
+                      status: "postevent",
                     },
                   },
                   count: 2,
