@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   detectDataType,
   parseLeague,
+  parseMatchups,
   parsePlayerStats,
   parsePlayers,
   parseRosters,
@@ -87,5 +88,168 @@ describe("yahoo parser", () => {
     assert.equal(categories[0]?.leagueId, 16883);
     assert.equal(categories[0]?.statId, "4");
     assert.equal(categories[0]?.name, "Pass TD Updated");
+  });
+
+  it("detects and parses raw Yahoo matchup payload (fantasy_content)", () => {
+    const rawYahoo = {
+      fantasy_content: {
+        league: [
+          { league_key: "nfl.l.12345", league_id: "12345" },
+          {
+            scoreboard: {
+              matchups: {
+                0: {
+                  matchup: {
+                    week: "3",
+                    is_playoffs: "0",
+                    is_consolation: "0",
+                    teams: {
+                      0: { team: { team_id: "1", team_points: { total: "98.5" } } },
+                      1: { team: { team_id: "2", team_points: { total: "101.2" } } },
+                      count: 2,
+                    },
+                  },
+                },
+                1: {
+                  matchup: {
+                    week: "3",
+                    is_playoffs: "0",
+                    is_consolation: "0",
+                    teams: {
+                      0: { team: { team_id: "3", team_points: { total: "110.0" } } },
+                      1: { team: { team_id: "4", team_points: { total: "110.0" } } },
+                      count: 2,
+                    },
+                  },
+                },
+                count: 2,
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    assert.equal(detectDataType(rawYahoo), "matchups");
+
+    const matchups = parseMatchups(rawYahoo);
+    assert.equal(matchups.length, 2);
+    assert.equal(matchups[0]?.leagueId, 12345);
+    assert.equal(matchups[0]?.week, 3);
+    assert.equal(matchups[0]?.team1Id, 1);
+    assert.equal(matchups[0]?.team2Id, 2);
+    assert.equal(matchups[0]?.team1Points, "98.5");
+    assert.equal(matchups[0]?.team2Points, "101.2");
+    assert.equal(matchups[0]?.winnerTeamId, 2);
+    assert.equal(matchups[0]?.isPlayoffs, false);
+    // tied game — no winner
+    assert.equal(matchups[1]?.winnerTeamId, null);
+  });
+
+  it("detects and parses raw Yahoo roster payload (fantasy_content)", () => {
+    const rawYahoo = {
+      fantasy_content: {
+        league: [
+          { league_key: "nfl.l.12345", league_id: "12345" },
+          {
+            teams: {
+              0: {
+                team: [
+                  { team_id: "1", team_key: "nfl.l.12345.t.1", name: "Team A" },
+                  {
+                    roster: {
+                      week: "3",
+                      players: {
+                        0: {
+                          player: [
+                            { player_id: "7578", player_key: "nfl.p.7578" },
+                            { selected_position: [{ coverage_type: "week" }, { position: "QB" }] },
+                          ],
+                        },
+                        1: {
+                          player: [
+                            { player_id: "9999", player_key: "nfl.p.9999" },
+                            { selected_position: [{ coverage_type: "week" }, { position: "BN" }] },
+                          ],
+                        },
+                        count: 2,
+                      },
+                    },
+                  },
+                ],
+              },
+              count: 1,
+            },
+          },
+        ],
+      },
+    };
+
+    assert.equal(detectDataType(rawYahoo), "rosters");
+
+    const rosters = parseRosters(rawYahoo);
+    assert.equal(rosters.length, 2);
+    assert.equal(rosters[0]?.teamId, 1);
+    assert.equal(rosters[0]?.playerId, 7578);
+    assert.equal(rosters[0]?.leagueId, 12345);
+    assert.equal(rosters[0]?.week, 3);
+    assert.equal(rosters[0]?.rosterPosition, "QB");
+    assert.equal(rosters[0]?.isStarting, true);
+    assert.equal(rosters[1]?.rosterPosition, "BN");
+    assert.equal(rosters[1]?.isStarting, false);
+  });
+
+  it("detects and parses raw Yahoo transaction payload (fantasy_content)", () => {
+    const rawYahoo = {
+      fantasy_content: {
+        league: [
+          { league_key: "nfl.l.12345", league_id: "12345" },
+          {
+            transactions: {
+              0: {
+                transaction: [
+                  {
+                    transaction_key: "nfl.l.12345.w.t.1",
+                    type: "add/drop",
+                    status: "successful",
+                    timestamp: "1725543870",
+                  },
+                  {
+                    players: {
+                      0: {
+                        player: [
+                          { player_id: "7578", player_key: "nfl.p.7578" },
+                          { transaction_data: { type: "add", destination_team_key: "nfl.l.12345.t.1" } },
+                        ],
+                      },
+                      count: 1,
+                    },
+                  },
+                ],
+              },
+              1: {
+                transaction: [
+                  { transaction_key: "", type: "add", status: "failed", timestamp: "0" },
+                  { players: {} },
+                ],
+              },
+              count: 2,
+            },
+          },
+        ],
+      },
+    };
+
+    assert.equal(detectDataType(rawYahoo), "transactions");
+
+    const transactions = parseTransactions(rawYahoo);
+    // second transaction has empty transaction_key and is filtered out
+    assert.equal(transactions.length, 1);
+    assert.equal(transactions[0]?.transactionKey, "nfl.l.12345.w.t.1");
+    assert.equal(transactions[0]?.leagueId, 12345);
+    assert.equal(transactions[0]?.type, "add/drop");
+    assert.equal(transactions[0]?.status, "successful");
+    assert.equal(transactions[0]?.transactionTimestamp, 1725543870);
+    assert.equal((transactions[0]?.players as unknown[]).length, 1);
   });
 });
