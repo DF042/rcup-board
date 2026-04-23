@@ -33,6 +33,24 @@ const DEFAULT_WEEKS = 18;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 const RATE_LIMIT_DELAY_MS = 300;
 const NON_STARTING_POSITIONS = new Set(["BN", "IR"]);
+const NFL_GAME_KEYS: Record<string, string> = {
+  "2025": "461",
+  "2024": "449",
+  "2023": "423",
+  "2022": "414",
+  "2021": "406",
+  "2020": "399",
+  "2019": "390",
+  "2018": "380",
+  "2017": "371",
+  "2016": "359",
+  "2015": "348",
+  "2014": "331",
+  "2013": "314",
+  "2012": "273",
+  "2011": "257",
+  "2010": "242",
+};
 
 let lastApiCallAt = 0;
 
@@ -591,6 +609,25 @@ function debugFileHint(options: CliOptions, name: string) {
   return options.debug ? `check ${debugPath}` : `run with --debug and check ${debugPath}`;
 }
 
+function resolveLeagueKey(leagueArg: string, season: number | undefined): string {
+  if (!season) return leagueArg;
+
+  const gameKey = NFL_GAME_KEYS[String(season)];
+  if (!gameKey) {
+    console.warn(`  ⚠ No known NFL game key for season ${season}, using league key as-is: ${leagueArg}`);
+    return leagueArg;
+  }
+
+  const leagueId = leagueArg.includes(".l.") ? leagueArg.split(".l.")[1] : leagueArg;
+  const corrected = `${gameKey}.l.${leagueId}`;
+
+  if (corrected !== leagueArg) {
+    console.log(`  ℹ League key corrected for season ${season}: ${leagueArg} → ${corrected}`);
+  }
+
+  return corrected;
+}
+
 async function main() {
   await loadEnvDefaults();
   const options = parseArgs(process.argv.slice(2));
@@ -603,12 +640,13 @@ async function main() {
   }
 
   const accessToken = await ensureAccessToken(clientId, clientSecret);
+  const leagueKey = resolveLeagueKey(options.league, options.season);
 
   await fs.mkdir(options.out, { recursive: true });
 
-  const leagueResponse = await yahooApiGet(`/league/${options.league}`, accessToken);
+  const leagueResponse = await yahooApiGet(`/league/${leagueKey}`, accessToken);
   await debugDump(options, "league", leagueResponse);
-  const settingsResponse = await yahooApiGet(`/league/${options.league}/settings`, accessToken);
+  const settingsResponse = await yahooApiGet(`/league/${leagueKey}/settings`, accessToken);
   await debugDump(options, "settings", settingsResponse);
 
   const leagueRoot = getFirstLeagueRoot(leagueResponse);
@@ -628,14 +666,14 @@ async function main() {
   const leagueId = leagueData.league_id;
   const leagueIdNumber = asNumber(leagueId);
 
-  const teamsResponse = await yahooApiGet(`/league/${options.league}/teams`, accessToken);
+  const teamsResponse = await yahooApiGet(`/league/${leagueKey}/teams`, accessToken);
   await debugDump(options, "teams", teamsResponse);
   const teamsData = extractTeams(teamsResponse, leagueId);
 
   const allPlayers: JsonRecord[] = [];
   for (let start = 0; ; start += 25) {
     const playersResponse = await yahooApiGet(
-      `/league/${options.league}/players;count=25;start=${start}`,
+      `/league/${leagueKey}/players;count=25;start=${start}`,
       accessToken,
     );
     await debugDump(options, `players-start-${start}`, playersResponse);
@@ -649,9 +687,9 @@ async function main() {
   const allRosters: JsonRecord[] = [];
 
   for (let week = 1; week <= options.weeks; week += 1) {
-    const scoreboardResponse = await yahooApiGet(`/league/${options.league}/scoreboard;week=${week}`, accessToken);
+    const scoreboardResponse = await yahooApiGet(`/league/${leagueKey}/scoreboard;week=${week}`, accessToken);
     await debugDump(options, `scoreboard-week-${week}`, scoreboardResponse);
-    const rosterResponse = await yahooApiGet(`/league/${options.league}/teams/roster;week=${week}`, accessToken);
+    const rosterResponse = await yahooApiGet(`/league/${leagueKey}/teams/roster;week=${week}`, accessToken);
     await debugDump(options, `roster-week-${week}`, rosterResponse);
 
     const weekMatchups = extractMatchups(scoreboardResponse, leagueIdNumber, week);
@@ -668,7 +706,7 @@ async function main() {
   }
 
   const transactionsResponse = await yahooApiGet(
-    `/league/${options.league}/transactions;type=add,drop,trade,commish`,
+    `/league/${leagueKey}/transactions;type=add,drop,trade,commish`,
     accessToken,
   );
   await debugDump(options, "transactions", transactionsResponse);
@@ -716,6 +754,7 @@ async function main() {
 export const __private = {
   parseArgs,
   extractMatchups,
+  resolveLeagueKey,
 };
 
 if (import.meta.url === pathToFileURL(process.argv[1]!).href) {

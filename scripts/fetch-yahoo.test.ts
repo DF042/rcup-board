@@ -18,6 +18,18 @@ describe("fetch-yahoo script", () => {
     assert.equal(parsed.debug, true);
   });
 
+  it("keeps league key unchanged when no season is provided", () => {
+    assert.equal(__private.resolveLeagueKey("470.l.16883", undefined), "470.l.16883");
+  });
+
+  it("corrects game key prefix to match provided season", () => {
+    assert.equal(__private.resolveLeagueKey("470.l.16883", 2024), "449.l.16883");
+  });
+
+  it("passes through league key for unknown seasons", () => {
+    assert.equal(__private.resolveLeagueKey("470.l.16883", 2099), "470.l.16883");
+  });
+
   it("derives matchup winner_team_id from team_points totals", () => {
     const response = {
       fantasy_content: {
