@@ -47,8 +47,8 @@ describe("fetch-yahoo script", () => {
                     is_playoffs: "0",
                     is_consolation: "0",
                     teams: {
-                      0: { team: { team_id: "1", team_points: { total: "98.5" } } },
-                      1: { team: { team_id: "2", team_points: { total: "101.2" } } },
+                      0: { team: [{ team_id: "1" }, { team_points: { total: "98.5" } }] },
+                      1: { team: [{ team_id: "2" }, { team_points: { total: "101.2" } }] },
                       count: 2,
                     },
                   },
@@ -58,8 +58,8 @@ describe("fetch-yahoo script", () => {
                     is_playoffs: "0",
                     is_consolation: "0",
                     teams: {
-                      0: { team: { team_id: "3", team_points: { total: "110.0" } } },
-                      1: { team: { team_id: "4", team_points: { total: "110.0" } } },
+                      0: { team: [{ team_id: "3" }, { team_points: { total: "110.0" } }] },
+                      1: { team: [{ team_id: "4" }, { team_points: { total: "110.0" } }] },
                       count: 2,
                     },
                   },
@@ -77,5 +77,12 @@ describe("fetch-yahoo script", () => {
     assert.equal(matchups.length, 2);
     assert.equal(matchups[0]?.winner_team_id, 2);
     assert.equal(matchups[1]?.winner_team_id, null);
+
+    const teams0 = matchups[0]?.teams as Array<{ team_id: string; team_points: { total: string } }>;
+    assert.equal(teams0.length, 2);
+    assert.ok(teams0[0]?.team_id, "first team should have a non-empty team_id");
+    assert.ok(teams0[0]?.team_points?.total, "first team should have a non-empty team_points.total");
+    assert.ok(teams0[1]?.team_id, "second team should have a non-empty team_id");
+    assert.ok(teams0[1]?.team_points?.total, "second team should have a non-empty team_points.total");
   });
 });

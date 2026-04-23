@@ -92,7 +92,7 @@ function toArray(value: unknown): JsonRecord[] {
 function normalizeNestedCollection(value: unknown, key: string): JsonRecord[] {
   return toArray(value)
     .map((item) => {
-      if (key in item) return asRecord(item[key]);
+      if (key in item) return flattenNode(item[key]);
       return item;
     })
     .filter((item) => Object.keys(item).length > 0);
