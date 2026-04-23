@@ -44,6 +44,7 @@ async function main() {
   console.log(
     `✓ Imported: ${summary.league} league, ${summary.teams} teams, ${summary.managers} managers, ${summary.players} players, ${summary.matchups} matchups, ${summary.rosters} rosters, ${summary.stats} stats, ${summary.transactions} transactions, ${summary.statCategories} stat categories`,
   );
+  process.exit(0);
 }
 
 main().catch((error) => {
