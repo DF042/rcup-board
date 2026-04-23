@@ -29,6 +29,52 @@ function list(value: unknown): Record<string, unknown>[] {
   return Object.values(record).map(asRecord);
 }
 
+// --- Raw Yahoo API (fantasy_content) format helpers ---
+// Yahoo returns object-maps with numeric string keys and a "count" key, e.g. {0:{...},1:{...},count:2}
+
+function yahooToArray(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value.map(asRecord);
+  const record = asRecord(value);
+  return Object.entries(record)
+    .filter(([key]) => key !== "count")
+    .map(([, item]) => asRecord(item));
+}
+
+function yahooNormalize(value: unknown, key: string): Record<string, unknown>[] {
+  return yahooToArray(value)
+    .map((item) => (key in item ? asRecord(item[key]) : item))
+    .filter((item) => Object.keys(item).length > 0);
+}
+
+function yahooFlatten(node: unknown): Record<string, unknown> {
+  if (Array.isArray(node)) {
+    const merged: Record<string, unknown> = {};
+    for (const entry of node) {
+      for (const [k, v] of Object.entries(yahooFlatten(entry))) {
+        if (!(k in merged)) {
+          merged[k] = v;
+        } else if (Array.isArray(merged[k])) {
+          (merged[k] as unknown[]).push(v);
+        } else {
+          merged[k] = [merged[k], v];
+        }
+      }
+    }
+    return merged;
+  }
+  return asRecord(node);
+}
+
+function getYahooLeagueSections(data: unknown): Record<string, unknown>[] {
+  const fc = asRecord(asRecord(data).fantasy_content);
+  const league = fc.league;
+  if (Array.isArray(league)) return league.map(asRecord);
+  if (league && typeof league === "object") return [asRecord(league)];
+  return [];
+}
+
+const NON_STARTING_POSITIONS = new Set(["BN", "IR"]);
+
 function normalizePositions(player: Record<string, unknown>): string[] {
   if (Array.isArray(player.positions)) return player.positions.map((value) => asString(value)).filter(Boolean);
   if (Array.isArray(player.eligible_positions)) {
@@ -109,7 +155,53 @@ export function parsePlayers(data: unknown): PlayerInsert[] {
 }
 
 export function parseMatchups(data: unknown): MatchupInsert[] {
-  const rows = list(asRecord(data).matchups ?? data);
+  const root = asRecord(data);
+
+  if (root.fantasy_content) {
+    const sections = getYahooLeagueSections(data);
+    const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
+    // TODO: leagueId currently stores Yahoo league_id, but matchups.leagueId FK points to leagues.id.
+    const leagueId = asNumber(leagueRoot.league_id);
+    const scoreboardSection = sections.find((s) => s.scoreboard);
+    if (!scoreboardSection) return [];
+
+    const matchupsBlock = asRecord(asRecord(scoreboardSection.scoreboard).matchups);
+    const rawMatchups = yahooNormalize(matchupsBlock, "matchup").map(yahooFlatten);
+
+    return rawMatchups
+      .map((matchupNode) => {
+        const teams = yahooNormalize(matchupNode.teams, "team").map(yahooFlatten);
+        const team1 = teams[0] ?? {};
+        const team2 = teams[1] ?? {};
+        const team1Points = asString(asRecord(team1.team_points).total, "0");
+        const team2Points = asString(asRecord(team2.team_points).total, "0");
+        const team1PointsNum = Number(team1Points);
+        const team2PointsNum = Number(team2Points);
+        const team1Id = asNumber(team1.team_id ?? team1.id);
+        const team2Id = asNumber(team2.team_id ?? team2.id);
+        const winnerTeamId =
+          Number.isFinite(team1PointsNum) && Number.isFinite(team2PointsNum) && team1PointsNum !== team2PointsNum
+            ? team1PointsNum > team2PointsNum
+              ? team1Id
+              : team2Id
+            : null;
+        return {
+          leagueId,
+          week: asNumber(matchupNode.week),
+          team1Id,
+          team2Id,
+          team1Points,
+          team2Points,
+          winnerTeamId,
+          isPlayoffs: asBool(matchupNode.is_playoffs),
+          isConsolation: asBool(matchupNode.is_consolation),
+          rawData: matchupNode,
+        } satisfies MatchupInsert;
+      })
+      .filter((m) => m.leagueId && m.team1Id && m.team2Id);
+  }
+
+  const rows = list(root.matchups ?? data);
   return rows
     .map((matchup) => {
       const teams = list(matchup.teams);
@@ -134,7 +226,45 @@ export function parseMatchups(data: unknown): MatchupInsert[] {
 }
 
 export function parseRosters(data: unknown): RosterInsert[] {
-  const rows = list(asRecord(data).rosters ?? data);
+  const root = asRecord(data);
+
+  if (root.fantasy_content) {
+    const sections = getYahooLeagueSections(data);
+    const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
+    // TODO: leagueId currently stores Yahoo league_id, but rosters.leagueId FK points to leagues.id.
+    const leagueId = asNumber(leagueRoot.league_id);
+    const teamsSection = sections.find((s) => Object.keys(asRecord(s.teams)).length > 0);
+    if (!teamsSection) return [];
+
+    const rawTeams = yahooNormalize(asRecord(teamsSection.teams), "team").map(yahooFlatten);
+    const result: RosterInsert[] = [];
+
+    for (const teamNode of rawTeams) {
+      const teamId = asNumber(teamNode.team_id);
+      if (!teamId) continue;
+      const rosterBlock = asRecord(teamNode.roster);
+      const week = asNumber(rosterBlock.week);
+      const playerRows = yahooNormalize(asRecord(rosterBlock.players), "player").map(yahooFlatten);
+
+      for (const player of playerRows) {
+        const playerId = asNumber(player.player_id);
+        if (!playerId) continue;
+        const selectedPosition = asString(yahooFlatten(player.selected_position).position);
+        result.push({
+          teamId,
+          playerId,
+          leagueId,
+          week,
+          rosterPosition: selectedPosition,
+          isStarting: !NON_STARTING_POSITIONS.has(selectedPosition),
+        });
+      }
+    }
+
+    return result.filter((r) => r.teamId !== 0 && r.playerId !== 0);
+  }
+
+  const rows = list(root.rosters ?? data);
   return rows
     .map((roster) => ({
       teamId: asNumber(roster.team_id),
@@ -165,7 +295,33 @@ export function parsePlayerStats(data: unknown): PlayerStatInsert[] {
 }
 
 export function parseTransactions(data: unknown): TransactionInsert[] {
-  const rows = list(asRecord(data).transactions ?? data);
+  const root = asRecord(data);
+
+  if (root.fantasy_content) {
+    const sections = getYahooLeagueSections(data);
+    const leagueRoot = sections.find((s) => s.league_key || s.league_id) ?? {};
+    // TODO: leagueId currently stores Yahoo league_id, but transactions.leagueId FK points to leagues.id.
+    const leagueId = asNumber(leagueRoot.league_id);
+    const txSection = sections.find((s) => s.transactions);
+    if (!txSection) return [];
+
+    const rawTxs = yahooNormalize(asRecord(txSection.transactions), "transaction").map(yahooFlatten);
+    return rawTxs
+      .map((tx) => ({
+        leagueId,
+        transactionKey: asString(tx.transaction_key),
+        type: asString(tx.type, "add"),
+        status: asString(tx.status),
+        transactionTimestamp: asNumber(tx.timestamp),
+        players: yahooToArray(asRecord(tx.players)).map((entry) =>
+          "player" in entry ? yahooFlatten(entry.player) : yahooFlatten(entry),
+        ),
+        rawData: tx,
+      } satisfies TransactionInsert))
+      .filter((tx) => Boolean(tx.transactionKey));
+  }
+
+  const rows = list(root.transactions ?? data);
   return rows
     .map((tx) => ({
       // TODO: leagueId currently stores Yahoo league_id, but transactions.leagueId FK points to leagues.id.
@@ -225,5 +381,24 @@ export function detectDataType(data: unknown) {
   if (root.rosters) return "rosters" as const;
   if (root.player_stats) return "stats" as const;
   if (root.transactions) return "transactions" as const;
+
+  // Raw Yahoo API format (fantasy_content wrapper)
+  if (root.fantasy_content) {
+    const sections = getYahooLeagueSections(data);
+    for (const section of sections) {
+      if (section.scoreboard) return "matchups" as const;
+      if (section.transactions) return "transactions" as const;
+    }
+    for (const section of sections) {
+      const teamsBlock = asRecord(section.teams);
+      if (Object.keys(teamsBlock).length > 0) {
+        const rawTeams = yahooNormalize(teamsBlock, "team");
+        if (rawTeams.some((t) => "roster" in yahooFlatten(t))) return "rosters" as const;
+        return "teams" as const;
+      }
+    }
+    if (sections.some((s) => s.league_key || s.league_id)) return "league" as const;
+  }
+
   return "unknown" as const;
 }
