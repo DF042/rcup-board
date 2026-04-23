@@ -474,7 +474,7 @@ function extractMatchups(response: JsonRecord, leagueId: number, week: number): 
   let scoreboardBlock = sections
     .map((section) => asRecord(section.scoreboard))
     .find((block) => Object.keys(block).length > 0);
-  if (!scoreboardBlock || Object.keys(scoreboardBlock).length === 0) {
+  if ((!scoreboardBlock || Object.keys(scoreboardBlock).length === 0) && sections.length > 1) {
     scoreboardBlock = asRecord(asRecord(sections[1])?.scoreboard);
   }
   const matchupsBlock = asRecord(scoreboardBlock?.matchups);
@@ -584,6 +584,11 @@ async function debugDump(options: CliOptions, name: string, data: JsonRecord) {
   await writeJson(path.join(debugDir, `${name}.json`), data);
 }
 
+function debugFileHint(options: CliOptions, name: string) {
+  const debugPath = path.join("debug", `${name}.json`);
+  return options.debug ? `check ${debugPath}` : `run with --debug and check ${debugPath}`;
+}
+
 async function main() {
   await loadEnvDefaults();
   const options = parseArgs(process.argv.slice(2));
@@ -649,13 +654,13 @@ async function main() {
 
     const weekMatchups = extractMatchups(scoreboardResponse, leagueIdNumber, week);
     if (weekMatchups.length === 0) {
-      console.warn(`  ⚠ Week ${week}: 0 matchups parsed (check debug/scoreboard-week-${week}.json)`);
+      console.warn(`  ⚠ Week ${week}: 0 matchups parsed (${debugFileHint(options, `scoreboard-week-${week}`)})`);
     }
     allMatchups.push(...weekMatchups);
 
     const weekRosters = extractRosters(rosterResponse, leagueId, week);
     if (weekRosters.length === 0) {
-      console.warn(`  ⚠ Week ${week}: 0 roster entries parsed (check debug/roster-week-${week}.json)`);
+      console.warn(`  ⚠ Week ${week}: 0 roster entries parsed (${debugFileHint(options, `roster-week-${week}`)})`);
     }
     allRosters.push(...weekRosters);
   }
@@ -664,7 +669,7 @@ async function main() {
   await debugDump(options, "transactions", transactionsResponse);
   const transactions = extractTransactions(transactionsResponse, leagueId);
   if (transactions.length === 0) {
-    console.warn("  ⚠ 0 transactions parsed (check debug/transactions.json)");
+    console.warn(`  ⚠ 0 transactions parsed (${debugFileHint(options, "transactions")})`);
   }
 
   const leagueFile = path.join(options.out, "league.json");
