@@ -477,7 +477,8 @@ function extractMatchups(response: JsonRecord, leagueId: number, week: number): 
   if ((!scoreboardBlock || Object.keys(scoreboardBlock).length === 0) && sections.length > 1) {
     scoreboardBlock = asRecord(asRecord(sections[1])?.scoreboard);
   }
-  const matchupsBlock = asRecord(scoreboardBlock?.matchups);
+  const innerScoreboard = asRecord((scoreboardBlock as JsonRecord)?.["0"] ?? scoreboardBlock);
+  const matchupsBlock = asRecord(innerScoreboard.matchups ?? (scoreboardBlock as JsonRecord)?.matchups);
 
   const rawMatchups = normalizeNestedCollection(matchupsBlock, "matchup").map((entry) => flattenNode(entry));
 
@@ -525,7 +526,8 @@ function extractRosters(response: JsonRecord, leagueId: string, week: number): J
       console.warn(`  ⚠ Team ${teamId}: no roster block found after flattenNode`);
       continue;
     }
-    const playersBlock = asRecord(rosterBlock.players);
+    const innerRoster = asRecord(rosterBlock["0"] ?? rosterBlock);
+    const playersBlock = asRecord(innerRoster.players ?? rosterBlock.players);
     const playerRows = normalizeNestedCollection(playersBlock, "player").map((entry) => flattenNode(entry));
 
     for (const player of playerRows) {
@@ -665,7 +667,10 @@ async function main() {
     allRosters.push(...weekRosters);
   }
 
-  const transactionsResponse = await yahooApiGet(`/league/${options.league}/transactions`, accessToken);
+  const transactionsResponse = await yahooApiGet(
+    `/league/${options.league}/transactions;type=add,drop,trade,commish`,
+    accessToken,
+  );
   await debugDump(options, "transactions", transactionsResponse);
   const transactions = extractTransactions(transactionsResponse, leagueId);
   if (transactions.length === 0) {
