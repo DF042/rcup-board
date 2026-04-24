@@ -28,9 +28,9 @@ export default async function ManagerDetailPage({
 
   const summary = allManagers.find((item) => item.managerId === manager.managerId);
 
-  const totalW = manager.seasons.reduce((sum, row) => sum + row.wins, 0);
-  const totalL = manager.seasons.reduce((sum, row) => sum + row.losses, 0);
-  const totalT = manager.seasons.reduce((sum, row) => sum + row.ties, 0);
+  const totalW = summary?.totalWins ?? manager.seasons.reduce((sum, row) => sum + row.wins, 0);
+  const totalL = summary?.totalLosses ?? manager.seasons.reduce((sum, row) => sum + row.losses, 0);
+  const totalT = summary?.totalTies ?? manager.seasons.reduce((sum, row) => sum + row.ties, 0);
 
   return (
     <div className="space-y-4 py-4">
@@ -57,6 +57,7 @@ export default async function ManagerDetailPage({
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Total W-L-T" value={`${totalW}-${totalL}-${totalT}`} />
             <Stat label="Avg PF" value={summary ? summary.avgPointsFor.toFixed(2) : "0.00"} />
+            <Stat label="Total Points" value={summary ? summary.totalPointsFor.toFixed(2) : "0.00"} />
             <Stat label="Best Finish" value={summary?.bestFinish ? `#${summary.bestFinish}` : "—"} />
             <Stat label="Worst Finish" value={summary?.worstFinish ? `#${summary.worstFinish}` : "—"} />
           </div>

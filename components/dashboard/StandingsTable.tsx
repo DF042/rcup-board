@@ -34,6 +34,9 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
     }
   };
 
+  const totalPF = rows.reduce((sum, r) => sum + r.pointsFor, 0);
+  const totalPA = rows.reduce((sum, r) => sum + r.pointsAgainst, 0);
+
   if (sorted.length === 0) {
     return (
       <EmptyState
@@ -101,6 +104,20 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
             );
           })}
         </tbody>
+        <tfoot className="bg-muted/30 font-semibold">
+          <tr className="border-t">
+            <td className="px-2 py-2" />
+            <td className="px-2 py-2">Totals</td>
+            <td className="px-2 py-2" />
+            <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.wins, 0)}</td>
+            <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.losses, 0)}</td>
+            <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.ties, 0)}</td>
+            <td className="px-2 py-2">{totalPF.toFixed(2)}</td>
+            <td className="hidden px-2 py-2 md:table-cell">{totalPA.toFixed(2)}</td>
+            <td className="hidden px-2 py-2 md:table-cell">{(totalPF - totalPA).toFixed(2)}</td>
+            <td className="hidden px-2 py-2 md:table-cell" />
+          </tr>
+        </tfoot>
       </table>
       </div>
     </div>
