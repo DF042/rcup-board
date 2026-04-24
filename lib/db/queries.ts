@@ -77,6 +77,7 @@ export type ManagerSummary = {
   totalTies: number;
   seasonsPlayed: number;
   avgPointsFor: number;
+  totalPointsFor: number;
   bestFinish: number | null;
   worstFinish: number | null;
 };
@@ -290,25 +291,26 @@ export async function getStandings(leagueId: string, season?: number): Promise<S
       ),
     );
 
-  return rows
-    .map((row) => {
-      const parsed = parseStandingPayload(row.standings);
-      return {
-        teamId: row.teamId,
-        teamKey: row.teamKey,
-        teamName: row.teamName,
-        logoUrl: row.logoUrl,
-        managerNickname: row.managerNickname,
-        wins: parsed.wins,
-        losses: parsed.losses,
-        ties: parsed.ties,
-        pointsFor: parsed.pointsFor,
-        pointsAgainst: parsed.pointsAgainst,
-        rank: parsed.rank,
-        streak: parsed.streak || undefined,
-      };
-    })
-    .sort((a, b) => a.rank - b.rank);
+  const result = rows.map((row) => {
+    const parsed = parseStandingPayload(row.standings);
+    return {
+      teamId: row.teamId,
+      teamKey: row.teamKey,
+      teamName: row.teamName,
+      logoUrl: row.logoUrl,
+      managerNickname: row.managerNickname,
+      wins: parsed.wins,
+      losses: parsed.losses,
+      ties: parsed.ties,
+      pointsFor: parsed.pointsFor,
+      pointsAgainst: parsed.pointsAgainst,
+      rank: parsed.rank,
+      streak: parsed.streak || undefined,
+    };
+  });
+  result.sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor);
+  result.forEach((row, i) => { row.rank = i + 1; });
+  return result;
 }
 
 export async function getAllSeasons(): Promise<SeasonSummary[]> {
@@ -591,6 +593,7 @@ export async function getAllManagers(): Promise<ManagerSummary[]> {
       totalTies: bucket.t,
       seasonsPlayed: seasonByManager.get(row.id)?.size ?? 0,
       avgPointsFor: bucket.games ? Number((bucket.points / bucket.games).toFixed(2)) : 0,
+      totalPointsFor: Number(bucket.points.toFixed(2)),
       bestFinish: finishes.length ? Math.min(...finishes) : null,
       worstFinish: finishes.length ? Math.max(...finishes) : null,
     };

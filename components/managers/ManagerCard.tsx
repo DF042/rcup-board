@@ -24,6 +24,8 @@ export function ManagerCard({ manager }: { manager: ManagerSummary }) {
         <span className="rounded bg-muted px-2 py-1">Win Rate {winRate}%</span>
         <span className="rounded bg-muted px-2 py-1">Seasons {manager.seasonsPlayed}</span>
         <span className="rounded bg-muted px-2 py-1">Best {manager.bestFinish ? `#${manager.bestFinish}` : "—"}</span>
+        <span className="rounded bg-muted px-2 py-1">Total Pts {manager.totalPointsFor.toFixed(2)}</span>
+        <span className="rounded bg-muted px-2 py-1">Avg Pts {manager.avgPointsFor.toFixed(2)}</span>
       </div>
     </Link>
   );
