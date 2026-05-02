@@ -86,11 +86,14 @@ export function PlayoffBracket({
 
   const weeks = [...new Set(bracketMatchups.map((m) => m.week))].sort((a, b) => a - b);
 
+  const MIN_ROUND_WIDTH = 200;
+  const MIN_BRACKET_WIDTH = 400;
+
   return (
     <div className="overflow-x-auto pb-2">
       <div
         className="flex gap-4"
-        style={{ minWidth: `${Math.max(weeks.length * 200, 400)}px` }}
+        style={{ minWidth: `${Math.max(weeks.length * MIN_ROUND_WIDTH, MIN_BRACKET_WIDTH)}px` }}
       >
         {weeks.map((week, roundIndex) => {
           const roundMatchups = bracketMatchups.filter((m) => m.week === week);
@@ -104,8 +107,8 @@ export function PlayoffBracket({
               <div className="flex flex-col justify-around gap-4">
                 {roundMatchups.map((matchup) => {
                   const isExpanded = expandedId === matchup.id;
-                  const leftRoster = rosterMap[`${matchup.team1Id}-${week}`] ?? [];
-                  const rightRoster = rosterMap[`${matchup.team2Id}-${week}`] ?? [];
+                  const leftRoster = rosterMap[`${matchup.team1Id}_${week}`] ?? [];
+                  const rightRoster = rosterMap[`${matchup.team2Id}_${week}`] ?? [];
                   return (
                     <MatchupNode
                       key={matchup.id}

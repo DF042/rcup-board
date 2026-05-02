@@ -84,12 +84,14 @@ export default async function DashboardPage({
   // show player breakdowns on click.
   const playoffMatchups = allMatchups.filter((m) => m.isPlayoffs && !m.isConsolation);
   const uniqueTeamWeeks = [
-    ...new Set(playoffMatchups.flatMap((m) => [`${m.team1Id}-${m.week}`, `${m.team2Id}-${m.week}`])),
+    ...new Set(playoffMatchups.flatMap((m) => [`${m.team1Id}_${m.week}`, `${m.team2Id}_${m.week}`])),
   ];
   const playoffRosterMap: Record<string, RosterPlayer[]> = {};
   await Promise.all(
     uniqueTeamWeeks.map(async (key) => {
-      const [teamIdStr, weekStr] = key.split("-");
+      const sep = key.lastIndexOf("_");
+      const teamIdStr = key.slice(0, sep);
+      const weekStr = key.slice(sep + 1);
       playoffRosterMap[key] = await getRoster(teamIdStr, Number(weekStr));
     }),
   );
