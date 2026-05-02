@@ -2,8 +2,10 @@ import Link from "next/link";
 import { RecentMatchups } from "@/components/dashboard/RecentMatchups";
 import { SeasonSummaryCard } from "@/components/dashboard/SeasonSummaryCard";
 import { StandingsTable } from "@/components/dashboard/StandingsTable";
-import { ChampionHistoryTable, PlayoffResultsTable } from "@/components/dashboard/PlayoffHistoryTable";
-import { getAllSeasons, getChampionHistory, getCurrentWeek, getMatchups, getPlayoffResults, getStandings, getTopScorers } from "@/lib/db/queries";
+import { ChampionHistoryTable } from "@/components/dashboard/PlayoffHistoryTable";
+import { PlayoffBracket } from "@/components/dashboard/PlayoffBracket";
+import { getAllSeasons, getChampionHistory, getCurrentWeek, getMatchups, getPlayoffResults, getRoster, getStandings, getTopScorers } from "@/lib/db/queries";
+import type { RosterPlayer } from "@/lib/db/queries";
 
 export const revalidate = 300;
 
@@ -37,9 +39,10 @@ export default async function DashboardPage({
         (currentWeekMatchups.length * 2)
       : 0;
 
-  // Compute playoff PF/PA per team from allMatchups so the standings table
-  // can subtract them when "Regular Season Only" is checked.
+  // Compute playoff PF/PA and expected wins per team from allMatchups so the
+  // standings table can adjust its numbers when "Regular Season Only" is toggled.
   const playoffPointsByTeam = new Map<number, { pf: number; pa: number }>();
+  const playoffWeekScores = new Map<number, Array<{ teamId: number; points: number }>>();
   for (const m of allMatchups) {
     if (!m.isPlayoffs) continue;
     const t1 = playoffPointsByTeam.get(m.team1Id) ?? { pf: 0, pa: 0 };
@@ -50,13 +53,46 @@ export default async function DashboardPage({
     t2.pf += m.team2Points;
     t2.pa += m.team1Points;
     playoffPointsByTeam.set(m.team2Id, t2);
+
+    // Collect all scores per week for expected-wins calculation
+    const weekList = playoffWeekScores.get(m.week) ?? [];
+    weekList.push({ teamId: m.team1Id, points: m.team1Points });
+    weekList.push({ teamId: m.team2Id, points: m.team2Points });
+    playoffWeekScores.set(m.week, weekList);
+  }
+
+  // Compute playoff expected wins (all-play formula) across playoff weeks
+  const playoffXWinsByTeam = new Map<number, number>();
+  for (const [, scores] of playoffWeekScores) {
+    const n = scores.length;
+    if (n < 2) continue;
+    const denom = n - 1;
+    for (const { teamId, points } of scores) {
+      const beaten = scores.filter((s) => s.teamId !== teamId && s.points < points).length;
+      playoffXWinsByTeam.set(teamId, (playoffXWinsByTeam.get(teamId) ?? 0) + beaten / denom);
+    }
   }
 
   const enrichedPlayoffResults = playoffResults.map((r) => ({
     ...r,
     playoffPointsFor: playoffPointsByTeam.get(r.teamId)?.pf ?? 0,
     playoffPointsAgainst: playoffPointsByTeam.get(r.teamId)?.pa ?? 0,
+    playoffExpectedWins: playoffXWinsByTeam.get(r.teamId) ?? 0,
   }));
+
+  // Build roster map for playoff (non-consolation) matchups so the bracket can
+  // show player breakdowns on click.
+  const playoffMatchups = allMatchups.filter((m) => m.isPlayoffs && !m.isConsolation);
+  const uniqueTeamWeeks = [
+    ...new Set(playoffMatchups.flatMap((m) => [`${m.team1Id}-${m.week}`, `${m.team2Id}-${m.week}`])),
+  ];
+  const playoffRosterMap: Record<string, RosterPlayer[]> = {};
+  await Promise.all(
+    uniqueTeamWeeks.map(async (key) => {
+      const [teamIdStr, weekStr] = key.split("-");
+      playoffRosterMap[key] = await getRoster(teamIdStr, Number(weekStr));
+    }),
+  );
 
   return (
     <div className="space-y-4 py-4">
@@ -102,8 +138,8 @@ export default async function DashboardPage({
       <RecentMatchups matchups={currentWeekMatchups} />
 
       <div className="rounded border p-4">
-        <h3 className="mb-2 font-semibold">Playoff Results — {selectedSeason}</h3>
-        <PlayoffResultsTable rows={playoffResults} />
+        <h3 className="mb-2 font-semibold">Playoff Bracket — {selectedSeason}</h3>
+        <PlayoffBracket matchups={playoffMatchups} rosterMap={playoffRosterMap} />
       </div>
 
       <div className="rounded border p-4">

@@ -968,7 +968,7 @@ export async function getPlayers(filters: {
       name: players.fullName,
       position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
       nflTeam: players.nflTeam,
-      ownerTeamName: teams.name,
+      ownerTeamName: max(teams.name),
       seasonPoints: sql<number>`coalesce(sum(${playerStats.points}::numeric), 0)`,
       weekAvg: avg(sql<number>`${playerStats.points}::numeric`),
       bestWeek: max(sql<number>`${playerStats.points}::numeric`),
@@ -977,7 +977,7 @@ export async function getPlayers(filters: {
     .leftJoin(playerStats, eq(playerStats.playerId, players.id))
     .leftJoin(teams, eq(playerStats.teamId, teams.id))
     .where(whereClause)
-    .groupBy(players.id, teams.name)
+    .groupBy(players.id)
     .orderBy(desc(sql`coalesce(sum(${playerStats.points}::numeric), 0)`))
     .limit(limit)
     .offset(offset);
