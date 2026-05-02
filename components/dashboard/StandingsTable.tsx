@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { StandingRow } from "@/lib/db/queries";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst";
+type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst" | "expectedWins";
 
 export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[]; playoffCutoff?: number }) {
   const router = useRouter();
@@ -50,7 +50,7 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
 
   return (
     <div className="table-scroll-wrap">
-      <div className="min-w-[760px] overflow-hidden rounded border">
+      <div className="min-w-[860px] overflow-hidden rounded border">
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left">
           <tr>
@@ -71,6 +71,11 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
               </th>
             ))}
             <th className="hidden px-2 py-2 md:table-cell">Diff</th>
+            <th className="hidden px-2 py-2 md:table-cell">
+              <button type="button" className="font-medium" onClick={() => onSort("expectedWins" as SortKey)}>
+                xW
+              </button>
+            </th>
             <th className="hidden px-2 py-2 md:table-cell">Streak</th>
           </tr>
         </thead>
@@ -99,6 +104,9 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
                 <td className="px-2 py-2">{row.pointsFor.toFixed(2)}</td>
                 <td className="hidden px-2 py-2 md:table-cell">{row.pointsAgainst.toFixed(2)}</td>
                 <td className="hidden px-2 py-2 md:table-cell">{(row.pointsFor - row.pointsAgainst).toFixed(2)}</td>
+                <td className="hidden px-2 py-2 md:table-cell">
+                  {row.expectedWins != null ? row.expectedWins.toFixed(2) : "—"}
+                </td>
                 <td className="hidden px-2 py-2 md:table-cell">{row.streak ?? "—"}</td>
               </tr>
             );
@@ -115,6 +123,7 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
             <td className="px-2 py-2">{totalPF.toFixed(2)}</td>
             <td className="hidden px-2 py-2 md:table-cell">{totalPA.toFixed(2)}</td>
             <td className="hidden px-2 py-2 md:table-cell">{(totalPF - totalPA).toFixed(2)}</td>
+            <td className="hidden px-2 py-2 md:table-cell" />
             <td className="hidden px-2 py-2 md:table-cell" />
           </tr>
         </tfoot>

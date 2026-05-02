@@ -1,7 +1,7 @@
 import { and, asc, avg, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
-import { leagues, managers, matchups, playerStats, players, rosters, teams, transactions } from "@/lib/db/schema";
+import { leagues, managers, matchups, playerStats, players, rosters, seasonStats, playoffResults, teams, transactions } from "@/lib/db/schema";
 
 export type StandingRow = {
   teamId: number;
@@ -16,6 +16,7 @@ export type StandingRow = {
   pointsAgainst: number;
   rank: number;
   streak?: string;
+  expectedWins?: number;
 };
 
 export type SeasonSummary = {
@@ -280,10 +281,12 @@ export async function getStandings(leagueId: string, season?: number): Promise<S
       logoUrl: teams.logoUrl,
       managerNickname: managers.nickname,
       standings: teams.standings,
+      expectedWins: seasonStats.expectedWins,
     })
     .from(teams)
     .leftJoin(managers, eq(teams.managerId, managers.id))
     .leftJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(seasonStats, eq(seasonStats.teamId, teams.id))
     .where(
       and(
         eq(teams.leagueId, leagueNumericId),
@@ -306,6 +309,7 @@ export async function getStandings(leagueId: string, season?: number): Promise<S
       pointsAgainst: parsed.pointsAgainst,
       rank: parsed.rank,
       streak: parsed.streak || undefined,
+      expectedWins: row.expectedWins != null ? toNumber(row.expectedWins) : undefined,
     };
   });
   result.sort((a, b) => b.wins - a.wins || b.pointsFor - a.pointsFor);
@@ -1230,4 +1234,179 @@ export async function crossViewQuery(params: {
     : [];
 
   return { viewType: "manager", entityId: params.entityId, dataType: "transactions", data: tx };
+}
+
+// ---------------------------------------------------------------------------
+// Season stats (pre-computed from matchups, includes expected wins)
+// ---------------------------------------------------------------------------
+
+export type SeasonStatRow = {
+  teamId: number;
+  teamKey: string;
+  teamName: string;
+  logoUrl: string | null;
+  managerNickname: string | null;
+  season: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
+  expectedWins: number;
+  rank: number;
+};
+
+export async function getSeasonStats(filters: {
+  leagueId?: string;
+  season?: number;
+  managerId?: string;
+}): Promise<SeasonStatRow[]> {
+  const leagueNumericId = filters.leagueId ? await resolveLeagueNumericId(filters.leagueId) : undefined;
+  const managerNumericId = filters.managerId ? Number(filters.managerId) : undefined;
+
+  const rows = await db
+    .select({
+      teamId: seasonStats.teamId,
+      teamKey: teams.teamKey,
+      teamName: teams.name,
+      logoUrl: teams.logoUrl,
+      managerNickname: managers.nickname,
+      season: seasonStats.season,
+      wins: seasonStats.wins,
+      losses: seasonStats.losses,
+      ties: seasonStats.ties,
+      pointsFor: seasonStats.pointsFor,
+      pointsAgainst: seasonStats.pointsAgainst,
+      expectedWins: seasonStats.expectedWins,
+      rank: seasonStats.rank,
+    })
+    .from(seasonStats)
+    .innerJoin(teams, eq(seasonStats.teamId, teams.id))
+    .leftJoin(managers, eq(teams.managerId, managers.id))
+    .leftJoin(leagues, eq(seasonStats.leagueId, leagues.id))
+    .where(
+      and(
+        leagueNumericId ? eq(seasonStats.leagueId, leagueNumericId) : undefined,
+        filters.season ? eq(seasonStats.season, filters.season) : undefined,
+        managerNumericId ? eq(teams.managerId, managerNumericId) : undefined,
+      ),
+    )
+    .orderBy(asc(seasonStats.rank));
+
+  return rows.map((row) => ({
+    teamId: row.teamId,
+    teamKey: row.teamKey,
+    teamName: row.teamName,
+    logoUrl: row.logoUrl,
+    managerNickname: row.managerNickname,
+    season: row.season,
+    wins: row.wins,
+    losses: row.losses,
+    ties: row.ties,
+    pointsFor: toNumber(row.pointsFor),
+    pointsAgainst: toNumber(row.pointsAgainst),
+    expectedWins: toNumber(row.expectedWins),
+    rank: row.rank,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Playoff results
+// ---------------------------------------------------------------------------
+
+export type PlayoffResultRow = {
+  teamId: number;
+  teamKey: string;
+  teamName: string;
+  logoUrl: string | null;
+  managerNickname: string | null;
+  season: number;
+  madePlayoffs: boolean;
+  playoffWins: number;
+  playoffLosses: number;
+  isChampion: boolean;
+  isConsolationWinner: boolean;
+  finalRank: number;
+};
+
+export type ChampionHistoryRow = {
+  season: number;
+  teamName: string;
+  managerNickname: string | null;
+  logoUrl: string | null;
+};
+
+export async function getPlayoffResults(filters: {
+  leagueId?: string;
+  season?: number;
+  managerId?: string;
+  championsOnly?: boolean;
+}): Promise<PlayoffResultRow[]> {
+  const leagueNumericId = filters.leagueId ? await resolveLeagueNumericId(filters.leagueId) : undefined;
+  const managerNumericId = filters.managerId ? Number(filters.managerId) : undefined;
+
+  const rows = await db
+    .select({
+      teamId: playoffResults.teamId,
+      teamKey: teams.teamKey,
+      teamName: teams.name,
+      logoUrl: teams.logoUrl,
+      managerNickname: managers.nickname,
+      season: playoffResults.season,
+      madePlayoffs: playoffResults.madePlayoffs,
+      playoffWins: playoffResults.playoffWins,
+      playoffLosses: playoffResults.playoffLosses,
+      isChampion: playoffResults.isChampion,
+      isConsolationWinner: playoffResults.isConsolationWinner,
+      finalRank: playoffResults.finalRank,
+    })
+    .from(playoffResults)
+    .innerJoin(teams, eq(playoffResults.teamId, teams.id))
+    .leftJoin(managers, eq(teams.managerId, managers.id))
+    .where(
+      and(
+        leagueNumericId ? eq(playoffResults.leagueId, leagueNumericId) : undefined,
+        filters.season ? eq(playoffResults.season, filters.season) : undefined,
+        managerNumericId ? eq(teams.managerId, managerNumericId) : undefined,
+        filters.championsOnly ? eq(playoffResults.isChampion, true) : undefined,
+      ),
+    )
+    .orderBy(desc(playoffResults.season), asc(playoffResults.finalRank));
+
+  return rows.map((row) => ({
+    teamId: row.teamId,
+    teamKey: row.teamKey,
+    teamName: row.teamName,
+    logoUrl: row.logoUrl,
+    managerNickname: row.managerNickname,
+    season: row.season,
+    madePlayoffs: row.madePlayoffs,
+    playoffWins: row.playoffWins,
+    playoffLosses: row.playoffLosses,
+    isChampion: row.isChampion,
+    isConsolationWinner: row.isConsolationWinner,
+    finalRank: row.finalRank,
+  }));
+}
+
+export async function getChampionHistory(): Promise<ChampionHistoryRow[]> {
+  const rows = await db
+    .select({
+      season: playoffResults.season,
+      teamName: teams.name,
+      managerNickname: managers.nickname,
+      logoUrl: teams.logoUrl,
+    })
+    .from(playoffResults)
+    .innerJoin(teams, eq(playoffResults.teamId, teams.id))
+    .leftJoin(managers, eq(teams.managerId, managers.id))
+    .where(eq(playoffResults.isChampion, true))
+    .orderBy(desc(playoffResults.season));
+
+  return rows.map((row) => ({
+    season: row.season,
+    teamName: row.teamName,
+    managerNickname: row.managerNickname,
+    logoUrl: row.logoUrl,
+  }));
 }

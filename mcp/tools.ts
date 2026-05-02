@@ -2,10 +2,13 @@ import {
   crossViewQuery,
   getAllManagers,
   getAllSeasons,
+  getChampionHistory,
   getHeadToHead,
   getLeagueBySeason,
   getMatchups,
+  getPlayoffResults,
   getPlayers,
+  getSeasonStats,
   getStandings,
   getTeamByKey,
   getTeams,
@@ -23,6 +26,9 @@ export const chatTools = {
   getPlayers,
   getTopScorers,
   getMatchups,
+  getSeasonStats,
+  getPlayoffResults,
+  getChampionHistory,
   crossViewQuery,
 };
 
@@ -145,6 +151,77 @@ export const chatToolDefinitions = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "getTeams",
+      description: "Get teams filtered by season, league, or manager",
+      parameters: {
+        type: "object",
+        properties: {
+          season: { type: "number" },
+          leagueId: { type: "string" },
+          managerId: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "getLeagueBySeason",
+      description: "Get league details for a specific season",
+      parameters: {
+        type: "object",
+        properties: {
+          season: { type: "number" },
+        },
+        required: ["season"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "getSeasonStats",
+      description: "Get pre-computed season stats (wins, losses, ties, points for/against, expected wins, rank) for teams. Expected wins measures how many wins a team would have accumulated if they had played against every other team each week.",
+      parameters: {
+        type: "object",
+        properties: {
+          leagueId: { type: "string" },
+          season: { type: "number" },
+          managerId: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "getPlayoffResults",
+      description: "Get playoff performance per team per season — whether they made playoffs, playoff wins/losses, champion status, and final rank",
+      parameters: {
+        type: "object",
+        properties: {
+          leagueId: { type: "string" },
+          season: { type: "number" },
+          managerId: { type: "string" },
+          championsOnly: { type: "boolean" },
+        },
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "getChampionHistory",
+      description: "Get the champion (winning team and manager) for every season in league history",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
 ];
 
 export async function runChatTool(name: string, args: Record<string, unknown>) {
@@ -191,6 +268,21 @@ export async function runChatTool(name: string, args: Record<string, unknown>) {
         week: typeof args.week === "number" ? args.week : undefined,
         teamId: typeof args.teamId === "string" ? args.teamId : undefined,
       });
+    case "getSeasonStats":
+      return chatTools.getSeasonStats({
+        leagueId: typeof args.leagueId === "string" ? args.leagueId : undefined,
+        season: typeof args.season === "number" ? args.season : undefined,
+        managerId: typeof args.managerId === "string" ? args.managerId : undefined,
+      });
+    case "getPlayoffResults":
+      return chatTools.getPlayoffResults({
+        leagueId: typeof args.leagueId === "string" ? args.leagueId : undefined,
+        season: typeof args.season === "number" ? args.season : undefined,
+        managerId: typeof args.managerId === "string" ? args.managerId : undefined,
+        championsOnly: typeof args.championsOnly === "boolean" ? args.championsOnly : undefined,
+      });
+    case "getChampionHistory":
+      return chatTools.getChampionHistory();
     case "crossViewQuery":
       return chatTools.crossViewQuery({
         viewType: args.viewType === "manager" ? "manager" : "team",

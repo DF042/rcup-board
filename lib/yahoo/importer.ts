@@ -11,6 +11,7 @@ import {
   transactions,
   statCategories,
 } from "@/lib/db/schema";
+import { recomputeLeagueStats } from "@/lib/db/compute";
 import {
   detectDataType,
   parseLeague,
@@ -229,6 +230,9 @@ export async function importYahooPayload(payload: unknown) {
         });
         summary.matchups = resolvedMatchups.length;
       }
+
+      // Recompute derived stats now that matchups are updated
+      await recomputeLeagueStats(dbLeagueId);
     }
   }
 
