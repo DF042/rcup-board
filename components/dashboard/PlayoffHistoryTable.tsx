@@ -49,7 +49,9 @@ export function ChampionHistoryTable({ rows }: { rows: ChampionHistoryRow[] }) {
 }
 
 export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
-  if (rows.length === 0) {
+  const playoffRows = rows.filter((r) => r.madePlayoffs);
+
+  if (playoffRows.length === 0) {
     return (
       <EmptyState
         icon={Trophy}
@@ -59,7 +61,7 @@ export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
     );
   }
 
-  const sorted = rows.slice().sort((a, b) => {
+  const sorted = playoffRows.slice().sort((a, b) => {
     if (b.playoffWins !== a.playoffWins) return b.playoffWins - a.playoffWins;
     if (a.playoffLosses !== b.playoffLosses) return a.playoffLosses - b.playoffLosses;
     return a.finalRank - b.finalRank;
@@ -67,13 +69,12 @@ export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
 
   return (
     <div className="table-scroll-wrap">
-      <div className="min-w-[640px] overflow-hidden rounded border">
+      <div className="min-w-[560px] overflow-hidden rounded border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left">
             <tr>
               <th className="px-2 py-2">Team</th>
               <th className="px-2 py-2">Manager</th>
-              <th className="px-2 py-2">Made Playoffs</th>
               <th className="px-2 py-2">Playoff W-L</th>
               <th className="px-2 py-2">Finish</th>
             </tr>
@@ -98,10 +99,7 @@ export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
                   </div>
                 </td>
                 <td className="px-2 py-2 text-muted-foreground">{row.managerNickname ?? "—"}</td>
-                <td className="px-2 py-2">{row.madePlayoffs ? "✓" : "—"}</td>
-                <td className="px-2 py-2">
-                  {row.madePlayoffs ? `${row.playoffWins}-${row.playoffLosses}` : "—"}
-                </td>
+                <td className="px-2 py-2">{`${row.playoffWins}-${row.playoffLosses}`}</td>
                 <td className="px-2 py-2">
                   {row.finalRank > 0 ? `#${row.finalRank}` : "—"}
                 </td>
