@@ -1,7 +1,9 @@
 import { ManagerHeadToHead } from "@/components/managers/ManagerHeadToHead";
 import { ManagerHistoryChart } from "@/components/managers/ManagerHistoryChart";
 import { WinRateRadarChart } from "@/components/charts/WinRateRadarChart";
-import { getAllManagers, getHeadToHead, getManagerById, getManagerRosterHistory } from "@/lib/db/queries";
+import { ManagerAchievements } from "@/components/managers/ManagerAchievements";
+import { computeAchievements } from "@/lib/achievements";
+import { getAllManagers, getHeadToHead, getManagerById, getManagerRosterHistory, getPlayoffResults } from "@/lib/db/queries";
 
 export const revalidate = 300;
 
@@ -10,7 +12,7 @@ export default async function ManagerDetailPage({
   searchParams,
 }: {
   params: Promise<{ managerId: string }>;
-  searchParams: Promise<{ tab?: "overview" | "history" | "players" | "h2h"; compareManagerId?: string }>;
+  searchParams: Promise<{ tab?: "overview" | "history" | "players" | "h2h" | "achievements"; compareManagerId?: string }>;
 }) {
   const { managerId } = await params;
   const { tab = "overview", compareManagerId } = await searchParams;
@@ -20,10 +22,11 @@ export default async function ManagerDetailPage({
     return <div className="py-4 text-sm text-muted-foreground">Manager not found.</div>;
   }
 
-  const [allManagers, bestPlayers, h2h] = await Promise.all([
+  const [allManagers, bestPlayers, h2h, managerPlayoffResults] = await Promise.all([
     getAllManagers(),
     getManagerRosterHistory(managerId),
     compareManagerId ? getHeadToHead(managerId, compareManagerId) : Promise.resolve(null),
+    getPlayoffResults({ managerId }),
   ]);
 
   const summary = allManagers.find((item) => item.managerId === manager.managerId);
@@ -31,6 +34,26 @@ export default async function ManagerDetailPage({
   const totalW = summary?.totalWins ?? manager.seasons.reduce((sum, row) => sum + row.wins, 0);
   const totalL = summary?.totalLosses ?? manager.seasons.reduce((sum, row) => sum + row.losses, 0);
   const totalT = summary?.totalTies ?? manager.seasons.reduce((sum, row) => sum + row.ties, 0);
+
+  const achievements = computeAchievements({
+    seasons: manager.seasons,
+    playoffSeasons: managerPlayoffResults.map(r => ({
+      season: r.season,
+      madePlayoffs: r.madePlayoffs,
+      playoffWins: r.playoffWins,
+      playoffLosses: r.playoffLosses,
+      isChampion: r.isChampion,
+      finalRank: r.finalRank,
+    })),
+    totalWins: totalW,
+    totalLosses: totalL,
+    totalTies: totalT,
+    avgPointsFor: summary?.avgPointsFor ?? 0,
+    totalPointsFor: summary?.totalPointsFor ?? 0,
+    bestFinish: summary?.bestFinish ?? null,
+    worstFinish: summary?.worstFinish ?? null,
+    seasonsPlayed: summary?.seasonsPlayed ?? manager.seasons.length,
+  });
 
   return (
     <div className="space-y-4 py-4">
@@ -45,6 +68,7 @@ export default async function ManagerDetailPage({
           ["history", "Season History"],
           ["players", "Best Players"],
           ["h2h", "Head-to-Head"],
+          ["achievements", "Achievements 🏅"],
         ].map(([value, label]) => (
           <a key={value} href={`/managers/${managerId}?tab=${value}`} className={`rounded border px-2 py-1 text-sm ${tab === value ? "bg-primary text-primary-foreground" : ""}`}>
             {label}
@@ -163,6 +187,10 @@ export default async function ManagerDetailPage({
             <p className="text-sm text-muted-foreground">Select another manager to view head-to-head.</p>
           )}
         </div>
+      ) : null}
+
+      {tab === "achievements" ? (
+        <ManagerAchievements achievements={achievements} />
       ) : null}
     </div>
   );

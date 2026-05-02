@@ -10,10 +10,11 @@ export default async function TeamDetailPage({
   searchParams,
 }: {
   params: Promise<{ teamKey: string }>;
-  searchParams: Promise<{ tab?: "overview" | "roster" | "matchups" | "history" }>;
+  searchParams: Promise<{ tab?: "overview" | "roster" | "matchups" | "history"; playoffOnly?: string }>;
 }) {
   const { teamKey } = await params;
-  const { tab = "overview" } = await searchParams;
+  const { tab = "overview", playoffOnly: playoffOnlyParam } = await searchParams;
+  const playoffOnly = playoffOnlyParam === "true";
 
   const team = await getTeamByKey(teamKey);
   if (!team) {
@@ -72,7 +73,22 @@ export default async function TeamDetailPage({
       {tab === "roster" ? <TeamRosterList roster={roster} /> : null}
 
       {tab === "matchups" ? (
-        <div className="overflow-hidden rounded border">
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <a
+              href={`/teams/${teamKey}?tab=matchups`}
+              className={`rounded-full border px-3 py-1 text-xs ${!playoffOnly ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              Regular Season
+            </a>
+            <a
+              href={`/teams/${teamKey}?tab=matchups&playoffOnly=true`}
+              className={`rounded-full border px-3 py-1 text-xs ${playoffOnly ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              Playoffs
+            </a>
+          </div>
+          <div className="overflow-hidden rounded border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
@@ -80,10 +96,13 @@ export default async function TeamDetailPage({
                 <th className="px-2 py-2">Opponent</th>
                 <th className="px-2 py-2">Score</th>
                 <th className="px-2 py-2">Result</th>
+                {playoffOnly ? <th className="px-2 py-2">Type</th> : null}
               </tr>
             </thead>
             <tbody>
-              {matchups.map((row) => {
+              {matchups
+                .filter((row) => (playoffOnly ? row.isPlayoffs : !row.isPlayoffs))
+                .map((row) => {
                 const isTeam1 = row.team1Id === team.id;
                 const opp = isTeam1 ? row.team2Name : row.team1Name;
                 const score = isTeam1 ? `${row.team1Points.toFixed(2)} - ${row.team2Points.toFixed(2)}` : `${row.team2Points.toFixed(2)} - ${row.team1Points.toFixed(2)}`;
@@ -94,11 +113,19 @@ export default async function TeamDetailPage({
                     <td className="px-2 py-2">{opp}</td>
                     <td className="px-2 py-2">{score}</td>
                     <td className="px-2 py-2">{row.winnerTeamId ? (won ? "W" : "L") : "T"}</td>
+                    {playoffOnly ? (
+                      <td className="px-2 py-2">
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
+                          {row.isConsolation ? "Consolation" : "Playoff"}
+                        </span>
+                      </td>
+                    ) : null}
                   </tr>
                 );
               })}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 

@@ -123,6 +123,8 @@ export type MatchupSummary = {
   team2Points: number;
   winnerTeamId: number | null;
   winnerTeamName: string | null;
+  isPlayoffs: boolean;
+  isConsolation: boolean;
 };
 
 export type HeadToHeadResult = {
@@ -720,6 +722,8 @@ export async function getMatchups(filters: {
       team2ManagerName: manager2.nickname,
       team2Points: matchups.team2Points,
       winnerTeamId: matchups.winnerTeamId,
+      isPlayoffs: matchups.isPlayoffs,
+      isConsolation: matchups.isConsolation,
     })
     .from(matchups)
     .innerJoin(leagues, eq(matchups.leagueId, leagues.id))
@@ -754,6 +758,8 @@ export async function getMatchups(filters: {
     team2Points: toNumber(row.team2Points),
     winnerTeamId: row.winnerTeamId,
     winnerTeamName: row.winnerTeamId === row.team1Id ? row.team1Name : row.winnerTeamId === row.team2Id ? row.team2Name : null,
+    isPlayoffs: row.isPlayoffs ?? false,
+    isConsolation: row.isConsolation ?? false,
   }));
 }
 
@@ -785,6 +791,8 @@ export async function getTeamMatchupHistory(team1Id: string, team2Id: string): P
       team2ManagerName: manager2Alias.nickname,
       team2Points: matchups.team2Points,
       winnerTeamId: matchups.winnerTeamId,
+      isPlayoffs: matchups.isPlayoffs,
+      isConsolation: matchups.isConsolation,
     })
     .from(matchups)
     .innerJoin(leagues, eq(matchups.leagueId, leagues.id))
@@ -817,6 +825,8 @@ export async function getTeamMatchupHistory(team1Id: string, team2Id: string): P
     team2Points: toNumber(row.team2Points),
     winnerTeamId: row.winnerTeamId,
     winnerTeamName: row.winnerTeamId === row.team1Id ? row.team1Name : row.winnerTeamId === row.team2Id ? row.team2Name : null,
+    isPlayoffs: row.isPlayoffs ?? false,
+    isConsolation: row.isConsolation ?? false,
   }));
 }
 
@@ -870,6 +880,8 @@ export async function getHeadToHead(manager1Id: string, manager2Id: string): Pro
       team2ManagerName: manager2Alias.nickname,
       team2Points: matchups.team2Points,
       winnerTeamId: matchups.winnerTeamId,
+      isPlayoffs: matchups.isPlayoffs,
+      isConsolation: matchups.isConsolation,
     })
     .from(matchups)
     .innerJoin(leagues, eq(matchups.leagueId, leagues.id))
@@ -898,6 +910,8 @@ export async function getHeadToHead(manager1Id: string, manager2Id: string): Pro
     winnerTeamId: row.winnerTeamId,
     winnerTeamName:
       row.winnerTeamId === row.team1Id ? row.team1Name : row.winnerTeamId === row.team2Id ? row.team2Name : null,
+    isPlayoffs: row.isPlayoffs ?? false,
+    isConsolation: row.isConsolation ?? false,
   }));
 
   let manager1Wins = 0;
