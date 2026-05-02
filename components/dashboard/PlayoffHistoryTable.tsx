@@ -59,6 +59,12 @@ export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
     );
   }
 
+  const sorted = rows.slice().sort((a, b) => {
+    if (b.playoffWins !== a.playoffWins) return b.playoffWins - a.playoffWins;
+    if (a.playoffLosses !== b.playoffLosses) return a.playoffLosses - b.playoffLosses;
+    return a.finalRank - b.finalRank;
+  });
+
   return (
     <div className="table-scroll-wrap">
       <div className="min-w-[640px] overflow-hidden rounded border">
@@ -73,7 +79,7 @@ export function PlayoffResultsTable({ rows }: { rows: PlayoffResultRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {sorted.map((row) => (
               <tr
                 key={`${row.season}-${row.teamId}`}
                 className={`border-t ${row.isChampion ? "bg-amber-50" : ""}`}
