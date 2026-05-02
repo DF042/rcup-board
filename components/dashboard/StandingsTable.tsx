@@ -14,6 +14,7 @@ type PlayoffResult = {
   playoffLosses: number;
   playoffPointsFor?: number;
   playoffPointsAgainst?: number;
+  playoffExpectedWins?: number;
 };
 
 export function StandingsTable({
@@ -36,18 +37,28 @@ export function StandingsTable({
     return map;
   }, [playoffResults]);
 
-  // Subtract playoff W/L and points from the record when regularSeasonOnly is checked
+  // Adjust wins, losses, points, and expected wins based on the regularSeasonOnly toggle.
+  // When regularSeasonOnly = true  → subtract playoff stats (stored values include all games).
+  // When regularSeasonOnly = false → add playoff expected-wins so xW matches the full-season wins.
   const adjustedRows = useMemo(() => {
     return rows.map((row) => {
-      if (!regularSeasonOnly) return row;
       const pr = playoffMap.get(row.teamId);
-      if (!pr) return row;
+      if (regularSeasonOnly) {
+        if (!pr) return row;
+        return {
+          ...row,
+          wins: row.wins - pr.playoffWins,
+          losses: row.losses - pr.playoffLosses,
+          pointsFor: row.pointsFor - (pr.playoffPointsFor ?? 0),
+          pointsAgainst: row.pointsAgainst - (pr.playoffPointsAgainst ?? 0),
+          // expectedWins from DB is already regular-season only — no adjustment needed
+        };
+      }
+      // Full season view: add playoff expected wins to xW so xDiff stays meaningful
+      if (!pr || row.expectedWins == null) return row;
       return {
         ...row,
-        wins: row.wins - pr.playoffWins,
-        losses: row.losses - pr.playoffLosses,
-        pointsFor: row.pointsFor - (pr.playoffPointsFor ?? 0),
-        pointsAgainst: row.pointsAgainst - (pr.playoffPointsAgainst ?? 0),
+        expectedWins: row.expectedWins + (pr.playoffExpectedWins ?? 0),
       };
     });
   }, [rows, regularSeasonOnly, playoffMap]);
