@@ -37,6 +37,27 @@ export default async function DashboardPage({
         (currentWeekMatchups.length * 2)
       : 0;
 
+  // Compute playoff PF/PA per team from allMatchups so the standings table
+  // can subtract them when "Regular Season Only" is checked.
+  const playoffPointsByTeam = new Map<number, { pf: number; pa: number }>();
+  for (const m of allMatchups) {
+    if (!m.isPlayoffs) continue;
+    const t1 = playoffPointsByTeam.get(m.team1Id) ?? { pf: 0, pa: 0 };
+    t1.pf += m.team1Points;
+    t1.pa += m.team2Points;
+    playoffPointsByTeam.set(m.team1Id, t1);
+    const t2 = playoffPointsByTeam.get(m.team2Id) ?? { pf: 0, pa: 0 };
+    t2.pf += m.team2Points;
+    t2.pa += m.team1Points;
+    playoffPointsByTeam.set(m.team2Id, t2);
+  }
+
+  const enrichedPlayoffResults = playoffResults.map((r) => ({
+    ...r,
+    playoffPointsFor: playoffPointsByTeam.get(r.teamId)?.pf ?? 0,
+    playoffPointsAgainst: playoffPointsByTeam.get(r.teamId)?.pa ?? 0,
+  }));
+
   return (
     <div className="space-y-4 py-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -61,7 +82,7 @@ export default async function DashboardPage({
         totalTransactions={0}
       />
 
-      <StandingsTable rows={standings} playoffResults={playoffResults} />
+      <StandingsTable rows={standings} playoffResults={enrichedPlayoffResults} />
 
       <div className="rounded border p-4">
         <h3 className="mb-2 font-semibold">Top 5 Scorers</h3>

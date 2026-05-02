@@ -8,7 +8,13 @@ import { EmptyState } from "@/components/ui/EmptyState";
 
 type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst" | "expectedWins" | "xDiff";
 
-type PlayoffResult = { teamId: number; playoffWins: number; playoffLosses: number };
+type PlayoffResult = {
+  teamId: number;
+  playoffWins: number;
+  playoffLosses: number;
+  playoffPointsFor?: number;
+  playoffPointsAgainst?: number;
+};
 
 export function StandingsTable({
   rows,
@@ -30,7 +36,7 @@ export function StandingsTable({
     return map;
   }, [playoffResults]);
 
-  // Subtract playoff W/L from the record when regularSeasonOnly is checked
+  // Subtract playoff W/L and points from the record when regularSeasonOnly is checked
   const adjustedRows = useMemo(() => {
     return rows.map((row) => {
       if (!regularSeasonOnly) return row;
@@ -40,13 +46,16 @@ export function StandingsTable({
         ...row,
         wins: row.wins - pr.playoffWins,
         losses: row.losses - pr.playoffLosses,
+        pointsFor: row.pointsFor - (pr.playoffPointsFor ?? 0),
+        pointsAgainst: row.pointsAgainst - (pr.playoffPointsAgainst ?? 0),
       };
     });
   }, [rows, regularSeasonOnly, playoffMap]);
 
   const sorted = useMemo(() => {
+    // xDiff = actual wins - expected wins (positive = doing better than luck, negative = worse)
     const copy = adjustedRows.map((row) => {
-      const xDiff = row.expectedWins != null ? row.expectedWins - row.wins : null;
+      const xDiff = row.expectedWins != null ? row.wins - row.expectedWins : null;
       return { ...row, _xDiff: xDiff };
     });
     copy.sort((a, b) => {
@@ -73,8 +82,8 @@ export function StandingsTable({
     }
   };
 
-  const totalPF = rows.reduce((sum, r) => sum + r.pointsFor, 0);
-  const totalPA = rows.reduce((sum, r) => sum + r.pointsAgainst, 0);
+  const totalPF = adjustedRows.reduce((sum, r) => sum + r.pointsFor, 0);
+  const totalPA = adjustedRows.reduce((sum, r) => sum + r.pointsAgainst, 0);
 
   if (sorted.length === 0) {
     return (
@@ -128,7 +137,7 @@ export function StandingsTable({
                 </button>
               </th>
               <th className="hidden px-2 py-2 md:table-cell">
-                <button type="button" className="font-medium" title="xDiff: Expected Wins minus Actual Wins. Negative = lucky (green), Positive = unlucky (red)" onClick={() => onSort("xDiff")}>
+                <button type="button" className="font-medium" title="xDiff: Actual Wins minus Expected Wins. Positive = better than expected (green), Negative = worse than expected (red)" onClick={() => onSort("xDiff")}>
                   xDiff
                 </button>
               </th>
@@ -142,13 +151,13 @@ export function StandingsTable({
 
               const xDiff = row._xDiff != null ? Number(row._xDiff.toFixed(2)) : null;
 
-              // Negative = lucky (won more than expected) = green
-              // Positive = unlucky (won fewer than expected) = red
+              // Positive = winning more than expected = green
+              // Negative = winning less than expected = red
               // Zero = gold
               let xDiffColor = "text-yellow-600 font-semibold";
               if (xDiff !== null) {
-                if (xDiff < 0) xDiffColor = "text-green-600 font-semibold";
-                else if (xDiff > 0) xDiffColor = "text-red-600 font-semibold";
+                if (xDiff > 0) xDiffColor = "text-green-600 font-semibold";
+                else if (xDiff < 0) xDiffColor = "text-red-600 font-semibold";
               }
 
               return (
