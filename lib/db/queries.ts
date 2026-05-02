@@ -281,6 +281,12 @@ export async function getStandings(leagueId: string, season?: number): Promise<S
       logoUrl: teams.logoUrl,
       managerNickname: managers.nickname,
       standings: teams.standings,
+      ssWins: seasonStats.wins,
+      ssLosses: seasonStats.losses,
+      ssTies: seasonStats.ties,
+      ssPointsFor: seasonStats.pointsFor,
+      ssPointsAgainst: seasonStats.pointsAgainst,
+      ssRank: seasonStats.rank,
       expectedWins: seasonStats.expectedWins,
     })
     .from(teams)
@@ -296,18 +302,19 @@ export async function getStandings(leagueId: string, season?: number): Promise<S
 
   const result = rows.map((row) => {
     const parsed = parseStandingPayload(row.standings);
+    const hasSeasonStats = row.ssWins != null;
     return {
       teamId: row.teamId,
       teamKey: row.teamKey,
       teamName: row.teamName,
       logoUrl: row.logoUrl,
       managerNickname: row.managerNickname,
-      wins: parsed.wins,
-      losses: parsed.losses,
-      ties: parsed.ties,
-      pointsFor: parsed.pointsFor,
-      pointsAgainst: parsed.pointsAgainst,
-      rank: parsed.rank,
+      wins: hasSeasonStats ? toNumber(row.ssWins) : parsed.wins,
+      losses: hasSeasonStats ? toNumber(row.ssLosses) : parsed.losses,
+      ties: hasSeasonStats ? toNumber(row.ssTies) : parsed.ties,
+      pointsFor: hasSeasonStats ? toNumber(row.ssPointsFor) : parsed.pointsFor,
+      pointsAgainst: hasSeasonStats ? toNumber(row.ssPointsAgainst) : parsed.pointsAgainst,
+      rank: hasSeasonStats ? toNumber(row.ssRank) : parsed.rank,
       streak: parsed.streak || undefined,
       expectedWins: row.expectedWins != null ? toNumber(row.expectedWins) : undefined,
     };
@@ -387,10 +394,17 @@ export async function getTeams(filters: { season?: number; managerId?: string; l
       managerId: teams.managerId,
       managerNickname: managers.nickname,
       standings: teams.standings,
+      ssWins: seasonStats.wins,
+      ssLosses: seasonStats.losses,
+      ssTies: seasonStats.ties,
+      ssPointsFor: seasonStats.pointsFor,
+      ssPointsAgainst: seasonStats.pointsAgainst,
+      ssRank: seasonStats.rank,
     })
     .from(teams)
     .leftJoin(managers, eq(teams.managerId, managers.id))
     .leftJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(seasonStats, eq(seasonStats.teamId, teams.id))
     .where(
       and(
         filters.season ? eq(leagues.season, filters.season) : undefined,
@@ -402,6 +416,7 @@ export async function getTeams(filters: { season?: number; managerId?: string; l
 
   return rows.map((row) => {
     const parsed = parseStandingPayload(row.standings);
+    const hasSeasonStats = row.ssWins != null;
     return {
       id: row.id,
       teamId: row.teamId,
@@ -412,12 +427,12 @@ export async function getTeams(filters: { season?: number; managerId?: string; l
       leagueId: row.leagueId,
       managerId: row.managerId,
       managerNickname: row.managerNickname,
-      wins: parsed.wins,
-      losses: parsed.losses,
-      ties: parsed.ties,
-      pointsFor: parsed.pointsFor,
-      pointsAgainst: parsed.pointsAgainst,
-      rank: parsed.rank,
+      wins: hasSeasonStats ? toNumber(row.ssWins) : parsed.wins,
+      losses: hasSeasonStats ? toNumber(row.ssLosses) : parsed.losses,
+      ties: hasSeasonStats ? toNumber(row.ssTies) : parsed.ties,
+      pointsFor: hasSeasonStats ? toNumber(row.ssPointsFor) : parsed.pointsFor,
+      pointsAgainst: hasSeasonStats ? toNumber(row.ssPointsAgainst) : parsed.pointsAgainst,
+      rank: hasSeasonStats ? toNumber(row.ssRank) : parsed.rank,
     };
   });
 }
@@ -438,16 +453,24 @@ export async function getTeamByKey(teamKey: string): Promise<TeamDetail | null> 
       standings: teams.standings,
       leagueKey: leagues.leagueKey,
       leagueName: leagues.name,
+      ssWins: seasonStats.wins,
+      ssLosses: seasonStats.losses,
+      ssTies: seasonStats.ties,
+      ssPointsFor: seasonStats.pointsFor,
+      ssPointsAgainst: seasonStats.pointsAgainst,
+      ssRank: seasonStats.rank,
     })
     .from(teams)
     .leftJoin(managers, eq(teams.managerId, managers.id))
     .leftJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(seasonStats, eq(seasonStats.teamId, teams.id))
     .where(eq(teams.teamKey, teamKey))
     .limit(1);
 
   const row = rows[0];
   if (!row) return null;
   const parsed = parseStandingPayload(row.standings);
+  const hasSeasonStats = row.ssWins != null;
 
   return {
     id: row.id,
@@ -463,12 +486,12 @@ export async function getTeamByKey(teamKey: string): Promise<TeamDetail | null> 
     leagueKey: row.leagueKey ?? "",
     leagueName: row.leagueName ?? "",
     standings: (row.standings as Record<string, unknown>) ?? {},
-    wins: parsed.wins,
-    losses: parsed.losses,
-    ties: parsed.ties,
-    pointsFor: parsed.pointsFor,
-    pointsAgainst: parsed.pointsAgainst,
-    rank: parsed.rank,
+    wins: hasSeasonStats ? toNumber(row.ssWins) : parsed.wins,
+    losses: hasSeasonStats ? toNumber(row.ssLosses) : parsed.losses,
+    ties: hasSeasonStats ? toNumber(row.ssTies) : parsed.ties,
+    pointsFor: hasSeasonStats ? toNumber(row.ssPointsFor) : parsed.pointsFor,
+    pointsAgainst: hasSeasonStats ? toNumber(row.ssPointsAgainst) : parsed.pointsAgainst,
+    rank: hasSeasonStats ? toNumber(row.ssRank) : parsed.rank,
   };
 }
 
@@ -483,25 +506,33 @@ export async function getTeamSeasonHistory(teamKey: string): Promise<SeasonRecor
       teamName: teams.name,
       standings: teams.standings,
       totalTeams: leagues.numTeams,
+      ssWins: seasonStats.wins,
+      ssLosses: seasonStats.losses,
+      ssTies: seasonStats.ties,
+      ssPointsFor: seasonStats.pointsFor,
+      ssPointsAgainst: seasonStats.pointsAgainst,
+      ssRank: seasonStats.rank,
     })
     .from(teams)
     .innerJoin(managers, eq(teams.managerId, managers.id))
     .innerJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(seasonStats, eq(seasonStats.teamId, teams.id))
     .where(eq(managers.guid, current.managerGuid))
     .orderBy(desc(leagues.season));
 
   return rows.map((row) => {
     const parsed = parseStandingPayload(row.standings);
+    const hasSeasonStats = row.ssWins != null;
     return {
       season: row.season ?? 0,
       leagueId: row.leagueId,
       teamName: row.teamName,
-      wins: parsed.wins,
-      losses: parsed.losses,
-      ties: parsed.ties,
-      pointsFor: parsed.pointsFor,
-      pointsAgainst: parsed.pointsAgainst,
-      finalRank: parsed.rank,
+      wins: hasSeasonStats ? toNumber(row.ssWins) : parsed.wins,
+      losses: hasSeasonStats ? toNumber(row.ssLosses) : parsed.losses,
+      ties: hasSeasonStats ? toNumber(row.ssTies) : parsed.ties,
+      pointsFor: hasSeasonStats ? toNumber(row.ssPointsFor) : parsed.pointsFor,
+      pointsAgainst: hasSeasonStats ? toNumber(row.ssPointsAgainst) : parsed.pointsAgainst,
+      finalRank: hasSeasonStats ? toNumber(row.ssRank) : parsed.rank,
       totalTeams: row.totalTeams ?? 0,
     };
   });
@@ -619,9 +650,16 @@ export async function getManagerById(managerId: string): Promise<ManagerDetail |
       teamKey: teams.teamKey,
       teamName: teams.name,
       standings: teams.standings,
+      ssWins: seasonStats.wins,
+      ssLosses: seasonStats.losses,
+      ssTies: seasonStats.ties,
+      ssPointsFor: seasonStats.pointsFor,
+      ssPointsAgainst: seasonStats.pointsAgainst,
+      ssRank: seasonStats.rank,
     })
     .from(teams)
     .innerJoin(leagues, eq(teams.leagueId, leagues.id))
+    .leftJoin(seasonStats, eq(seasonStats.teamId, teams.id))
     .where(eq(teams.managerId, id))
     .orderBy(desc(leagues.season));
 
@@ -633,18 +671,19 @@ export async function getManagerById(managerId: string): Promise<ManagerDetail |
     imageUrl: managerRow[0].imageUrl,
     seasons: seasons.map((row) => {
       const parsed = parseStandingPayload(row.standings);
+      const hasSeasonStats = row.ssWins != null;
       return {
         season: row.season ?? 0,
         leagueId: row.leagueId,
         teamId: row.teamId,
         teamKey: row.teamKey,
         teamName: row.teamName,
-        wins: parsed.wins,
-        losses: parsed.losses,
-        ties: parsed.ties,
-        pointsFor: parsed.pointsFor,
-        pointsAgainst: parsed.pointsAgainst,
-        rank: parsed.rank,
+        wins: hasSeasonStats ? toNumber(row.ssWins) : parsed.wins,
+        losses: hasSeasonStats ? toNumber(row.ssLosses) : parsed.losses,
+        ties: hasSeasonStats ? toNumber(row.ssTies) : parsed.ties,
+        pointsFor: hasSeasonStats ? toNumber(row.ssPointsFor) : parsed.pointsFor,
+        pointsAgainst: hasSeasonStats ? toNumber(row.ssPointsAgainst) : parsed.pointsAgainst,
+        rank: hasSeasonStats ? toNumber(row.ssRank) : parsed.rank,
       };
     }),
   };
