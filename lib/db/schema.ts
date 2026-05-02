@@ -151,6 +151,51 @@ export const transactions = pgTable("transactions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const seasonStats = pgTable(
+  "season_stats",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    leagueId: integer("league_id").notNull().references(() => leagues.id, { onDelete: "cascade" }),
+    season: integer("season").notNull(),
+    wins: integer("wins").notNull().default(0),
+    losses: integer("losses").notNull().default(0),
+    ties: integer("ties").notNull().default(0),
+    pointsFor: numeric("points_for", { precision: 10, scale: 2 }).notNull().default("0"),
+    pointsAgainst: numeric("points_against", { precision: 10, scale: 2 }).notNull().default("0"),
+    expectedWins: numeric("expected_wins", { precision: 10, scale: 4 }).notNull().default("0"),
+    rank: integer("rank").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("season_stats_unique").on(table.teamId, table.season),
+    index("season_stats_league_idx").on(table.leagueId),
+  ],
+);
+
+export const playoffResults = pgTable(
+  "playoff_results",
+  {
+    id: serial("id").primaryKey(),
+    teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+    leagueId: integer("league_id").notNull().references(() => leagues.id, { onDelete: "cascade" }),
+    season: integer("season").notNull(),
+    madePlayoffs: boolean("made_playoffs").notNull().default(false),
+    playoffWins: integer("playoff_wins").notNull().default(0),
+    playoffLosses: integer("playoff_losses").notNull().default(0),
+    isChampion: boolean("is_champion").notNull().default(false),
+    isConsolationWinner: boolean("is_consolation_winner").notNull().default(false),
+    finalRank: integer("final_rank").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("playoff_results_unique").on(table.teamId, table.season),
+    index("playoff_results_league_idx").on(table.leagueId),
+  ],
+);
+
 export const statCategories = pgTable(
   "stat_categories",
   {
@@ -176,3 +221,5 @@ export type MatchupInsert = typeof matchups.$inferInsert;
 export type PlayerStatInsert = typeof playerStats.$inferInsert;
 export type TransactionInsert = typeof transactions.$inferInsert;
 export type StatCategoryInsert = typeof statCategories.$inferInsert;
+export type SeasonStatInsert = typeof seasonStats.$inferInsert;
+export type PlayoffResultInsert = typeof playoffResults.$inferInsert;

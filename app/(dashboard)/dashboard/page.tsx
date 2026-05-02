@@ -2,7 +2,8 @@ import Link from "next/link";
 import { RecentMatchups } from "@/components/dashboard/RecentMatchups";
 import { SeasonSummaryCard } from "@/components/dashboard/SeasonSummaryCard";
 import { StandingsTable } from "@/components/dashboard/StandingsTable";
-import { getAllSeasons, getCurrentWeek, getMatchups, getStandings, getTopScorers } from "@/lib/db/queries";
+import { ChampionHistoryTable, PlayoffResultsTable } from "@/components/dashboard/PlayoffHistoryTable";
+import { getAllSeasons, getChampionHistory, getCurrentWeek, getMatchups, getPlayoffResults, getStandings, getTopScorers } from "@/lib/db/queries";
 
 export const revalidate = 300;
 
@@ -20,11 +21,13 @@ export default async function DashboardPage({
     return <div className="py-4 text-sm text-muted-foreground">No season data available yet.</div>;
   }
 
-  const [standings, currentWeek, allMatchups, topScorers] = await Promise.all([
+  const [standings, currentWeek, allMatchups, topScorers, championHistory, playoffResults] = await Promise.all([
     getStandings(String(seasonLeague.leagueId), selectedSeason),
     getCurrentWeek(String(seasonLeague.leagueId)),
     getMatchups({ leagueId: String(seasonLeague.leagueId), season: selectedSeason }),
     getTopScorers({ season: selectedSeason ?? seasonLeague.season, limit: 5 }),
+    getChampionHistory(),
+    getPlayoffResults({ leagueId: String(seasonLeague.leagueId), season: selectedSeason }),
   ]);
 
   const currentWeekMatchups = allMatchups.filter((row) => row.week === currentWeek);
@@ -76,6 +79,16 @@ export default async function DashboardPage({
       </div>
 
       <RecentMatchups matchups={currentWeekMatchups} />
+
+      <div className="rounded border p-4">
+        <h3 className="mb-2 font-semibold">Playoff Results — {selectedSeason}</h3>
+        <PlayoffResultsTable rows={playoffResults} />
+      </div>
+
+      <div className="rounded border p-4">
+        <h3 className="mb-2 font-semibold">Champion History</h3>
+        <ChampionHistoryTable rows={championHistory} />
+      </div>
     </div>
   );
 }
