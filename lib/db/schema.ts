@@ -169,7 +169,7 @@ export const seasonStats = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique("season_stats_unique").on(table.teamId),
+    unique("season_stats_unique").on(table.teamId, table.season),
     index("season_stats_league_idx").on(table.leagueId),
   ],
 );
@@ -191,7 +191,7 @@ export const playoffResults = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique("playoff_results_unique").on(table.teamId),
+    unique("playoff_results_unique").on(table.teamId, table.season),
     index("playoff_results_league_idx").on(table.leagueId),
   ],
 );

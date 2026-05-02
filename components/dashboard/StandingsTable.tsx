@@ -72,7 +72,7 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
             ))}
             <th className="hidden px-2 py-2 md:table-cell">Diff</th>
             <th className="hidden px-2 py-2 md:table-cell">
-              <button type="button" className="font-medium" onClick={() => onSort("expectedWins" as SortKey)}>
+              <button type="button" className="font-medium" title="Expected Wins: hypothetical wins if the team had played every other team each week" onClick={() => onSort("expectedWins" as SortKey)}>
                 xW
               </button>
             </th>

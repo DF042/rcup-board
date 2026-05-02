@@ -15,7 +15,7 @@ CREATE TABLE season_stats (
   rank INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT season_stats_unique UNIQUE (team_id)
+  CONSTRAINT season_stats_unique UNIQUE (team_id, season)
 );
 CREATE INDEX season_stats_league_idx ON season_stats(league_id);
 
@@ -34,6 +34,6 @@ CREATE TABLE playoff_results (
   final_rank INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT playoff_results_unique UNIQUE (team_id)
+  CONSTRAINT playoff_results_unique UNIQUE (team_id, season)
 );
 CREATE INDEX playoff_results_league_idx ON playoff_results(league_id);

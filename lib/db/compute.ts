@@ -155,7 +155,7 @@ export async function recomputeSeasonStats(leagueId: number): Promise<void> {
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: seasonStats.teamId,
+        target: [seasonStats.teamId, seasonStats.season],
         set: {
           leagueId: sql`excluded.league_id`,
           season: sql`excluded.season`,
@@ -251,14 +251,12 @@ export async function recomputePlayoffResults(leagueId: number): Promise<void> {
       const b1 = buckets.get(row.team1Id);
       const b2 = buckets.get(row.team2Id);
       if (b1) {
-        if (!row.winnerTeamId) { b1.playoffWins += 0; }
-        else if (row.winnerTeamId === row.team1Id) b1.playoffWins += 1;
-        else b1.playoffLosses += 1;
+        if (row.winnerTeamId === row.team1Id) b1.playoffWins += 1;
+        else if (row.winnerTeamId) b1.playoffLosses += 1;
       }
       if (b2) {
-        if (!row.winnerTeamId) { b2.playoffWins += 0; }
-        else if (row.winnerTeamId === row.team2Id) b2.playoffWins += 1;
-        else b2.playoffLosses += 1;
+        if (row.winnerTeamId === row.team2Id) b2.playoffWins += 1;
+        else if (row.winnerTeamId) b2.playoffLosses += 1;
       }
     }
 
@@ -336,7 +334,7 @@ export async function recomputePlayoffResults(leagueId: number): Promise<void> {
         updatedAt: now,
       })
       .onConflictDoUpdate({
-        target: playoffResults.teamId,
+        target: [playoffResults.teamId, playoffResults.season],
         set: {
           leagueId: sql`excluded.league_id`,
           season: sql`excluded.season`,
