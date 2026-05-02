@@ -61,7 +61,7 @@ export default async function DashboardPage({
         totalTransactions={0}
       />
 
-      <StandingsTable rows={standings} />
+      <StandingsTable rows={standings} playoffResults={playoffResults} />
 
       <div className="rounded border p-4">
         <h3 className="mb-2 font-semibold">Top 5 Scorers</h3>

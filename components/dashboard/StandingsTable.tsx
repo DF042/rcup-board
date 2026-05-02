@@ -6,26 +6,64 @@ import { useRouter } from "next/navigation";
 import type { StandingRow } from "@/lib/db/queries";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst" | "expectedWins";
+type SortKey = "rank" | "teamName" | "managerNickname" | "wins" | "losses" | "ties" | "pointsFor" | "pointsAgainst" | "expectedWins" | "xDiff";
 
-export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[]; playoffCutoff?: number }) {
+type PlayoffResult = { teamId: number; playoffWins: number; playoffLosses: number };
+
+export function StandingsTable({
+  rows,
+  playoffCutoff = 6,
+  playoffResults = [],
+}: {
+  rows: StandingRow[];
+  playoffCutoff?: number;
+  playoffResults?: PlayoffResult[];
+}) {
   const router = useRouter();
   const [sortBy, setSortBy] = useState<SortKey>("rank");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [regularSeasonOnly, setRegularSeasonOnly] = useState(true);
 
+  const playoffMap = useMemo(() => {
+    const map = new Map<number, PlayoffResult>();
+    for (const r of playoffResults) map.set(r.teamId, r);
+    return map;
+  }, [playoffResults]);
+
+  // Subtract playoff W/L from the record when regularSeasonOnly is checked
+  const adjustedRows = useMemo(() => {
+    return rows.map((row) => {
+      if (!regularSeasonOnly) return row;
+      const pr = playoffMap.get(row.teamId);
+      if (!pr) return row;
+      return {
+        ...row,
+        wins: row.wins - pr.playoffWins,
+        losses: row.losses - pr.playoffLosses,
+      };
+    });
+  }, [rows, regularSeasonOnly, playoffMap]);
+
   const sorted = useMemo(() => {
-    const copy = [...rows];
+    const copy = adjustedRows.map((row) => {
+      const xDiff = row.expectedWins != null ? row.expectedWins - row.wins : null;
+      return { ...row, _xDiff: xDiff };
+    });
     copy.sort((a, b) => {
-      const first = a[sortBy] ?? 0;
-      const second = b[sortBy] ?? 0;
+      if (sortBy === "xDiff") {
+        const av = a._xDiff ?? 0;
+        const bv = b._xDiff ?? 0;
+        return (av - bv) * (sortDir === "asc" ? 1 : -1);
+      }
+      const first = a[sortBy as keyof StandingRow] ?? 0;
+      const second = b[sortBy as keyof StandingRow] ?? 0;
       if (typeof first === "string" || typeof second === "string") {
         return `${first}`.localeCompare(`${second}`) * (sortDir === "asc" ? 1 : -1);
       }
       return ((Number(first) || 0) - (Number(second) || 0)) * (sortDir === "asc" ? 1 : -1);
     });
     return copy;
-  }, [rows, sortBy, sortDir]);
+  }, [adjustedRows, sortBy, sortDir]);
 
   const onSort = (key: SortKey) => {
     if (sortBy === key) setSortDir((value) => (value === "asc" ? "desc" : "asc"));
@@ -85,11 +123,15 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
               ))}
               <th className="hidden px-2 py-2 md:table-cell">Diff</th>
               <th className="hidden px-2 py-2 md:table-cell">
-                <button type="button" className="font-medium" title="Expected Wins: hypothetical wins if the team had played every other team each week" onClick={() => onSort("expectedWins" as SortKey)}>
+                <button type="button" className="font-medium" title="Expected Wins: hypothetical wins if the team had played every other team each week" onClick={() => onSort("expectedWins")}>
                   xW
                 </button>
               </th>
-              <th className="hidden px-2 py-2 md:table-cell" title="xDiff: Expected Wins minus Actual Wins">xDiff</th>
+              <th className="hidden px-2 py-2 md:table-cell">
+                <button type="button" className="font-medium" title="xDiff: Expected Wins minus Actual Wins. Negative = lucky (green), Positive = unlucky (red)" onClick={() => onSort("xDiff")}>
+                  xDiff
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -98,15 +140,15 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
               const isLast = row.rank === sorted.length;
               const inPlayoffs = row.rank <= playoffCutoff;
 
-              const xDiff =
-                row.expectedWins != null
-                  ? Number((row.expectedWins - row.wins).toFixed(2))
-                  : null;
+              const xDiff = row._xDiff != null ? Number(row._xDiff.toFixed(2)) : null;
 
+              // Negative = lucky (won more than expected) = green
+              // Positive = unlucky (won fewer than expected) = red
+              // Zero = gold
               let xDiffColor = "text-yellow-600 font-semibold";
               if (xDiff !== null) {
-                if (xDiff > 0) xDiffColor = "text-green-600 font-semibold";
-                else if (xDiff < 0) xDiffColor = "text-red-600 font-semibold";
+                if (xDiff < 0) xDiffColor = "text-green-600 font-semibold";
+                else if (xDiff > 0) xDiffColor = "text-red-600 font-semibold";
               }
 
               return (
@@ -144,9 +186,9 @@ export function StandingsTable({ rows, playoffCutoff = 6 }: { rows: StandingRow[
               <td className="px-2 py-2" />
               <td className="px-2 py-2">Totals</td>
               <td className="px-2 py-2" />
-              <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.wins, 0)}</td>
-              <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.losses, 0)}</td>
-              <td className="px-2 py-2">{rows.reduce((sum, r) => sum + r.ties, 0)}</td>
+              <td className="px-2 py-2">{adjustedRows.reduce((sum, r) => sum + r.wins, 0)}</td>
+              <td className="px-2 py-2">{adjustedRows.reduce((sum, r) => sum + r.losses, 0)}</td>
+              <td className="px-2 py-2">{adjustedRows.reduce((sum, r) => sum + r.ties, 0)}</td>
               <td className="px-2 py-2">{totalPF.toFixed(2)}</td>
               <td className="hidden px-2 py-2 md:table-cell">{totalPA.toFixed(2)}</td>
               <td className="hidden px-2 py-2 md:table-cell">{(totalPF - totalPA).toFixed(2)}</td>
