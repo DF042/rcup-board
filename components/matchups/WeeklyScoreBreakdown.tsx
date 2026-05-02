@@ -1,4 +1,5 @@
 import type { RosterPlayer } from "@/lib/db/queries";
+import { slotSortKey } from "@/lib/roster/slotOrder";
 
 export function WeeklyScoreBreakdown({
   leftRoster,
@@ -7,8 +8,14 @@ export function WeeklyScoreBreakdown({
   leftRoster: RosterPlayer[];
   rightRoster: RosterPlayer[];
 }) {
-  const [leftStarters, leftBench] = [leftRoster.filter((p) => p.isStarting), leftRoster.filter((p) => !p.isStarting)];
-  const [rightStarters, rightBench] = [rightRoster.filter((p) => p.isStarting), rightRoster.filter((p) => !p.isStarting)];
+  const leftStarters = leftRoster
+    .filter((p) => p.isStarting)
+    .sort((a, b) => slotSortKey(a.rosterPosition) - slotSortKey(b.rosterPosition));
+  const leftBench = leftRoster.filter((p) => !p.isStarting);
+  const rightStarters = rightRoster
+    .filter((p) => p.isStarting)
+    .sort((a, b) => slotSortKey(a.rosterPosition) - slotSortKey(b.rosterPosition));
+  const rightBench = rightRoster.filter((p) => !p.isStarting);
 
   return (
     <div className="space-y-2 rounded border p-3 text-xs">

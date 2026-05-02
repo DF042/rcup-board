@@ -1,7 +1,10 @@
 import type { RosterPlayer } from "@/lib/db/queries";
+import { slotSortKey } from "@/lib/roster/slotOrder";
 
 export function TeamRosterList({ roster }: { roster: RosterPlayer[] }) {
-  const starters = roster.filter((player) => player.isStarting);
+  const starters = roster
+    .filter((player) => player.isStarting)
+    .sort((a, b) => slotSortKey(a.rosterPosition) - slotSortKey(b.rosterPosition));
   const bench = roster.filter((player) => !player.isStarting);
 
   const rows = [...starters, ...bench];
