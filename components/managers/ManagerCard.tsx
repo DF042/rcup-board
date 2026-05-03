@@ -18,7 +18,7 @@ export function ManagerCard({ manager }: { manager: ManagerSummary }) {
           <p className="flex items-center gap-1 font-semibold">
             {manager.nickname}
             {Array.from({ length: manager.championships }, (_, i) => (
-              <Crown key={i} className="h-4 w-4 text-yellow-500" aria-label="Champion" />
+              <Crown key={i} className="h-4 w-4 text-yellow-500" aria-label={`Championship ${i + 1}`} />
             ))}
           </p>
           <p className="text-xs text-muted-foreground">

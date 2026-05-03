@@ -636,7 +636,7 @@ function extractPlayerStats(response: JsonRecord, leagueId: string, week: number
       // player_points is included when the /stats sub-resource is requested
       const playerPointsBlock = asRecord(player.player_points ?? {});
       const points = asString(playerPointsBlock.total ?? playerPointsBlock.value ?? "", "0");
-      if (!points || points === "0") continue;
+      if (points === "" || playerPointsBlock.total == null) continue;
 
       const statValues = asRecord(
         player.player_stats ?? asRecord(player.stats).stat_values ?? {},
