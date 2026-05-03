@@ -738,10 +738,16 @@ async function main() {
 
   const allPlayers: JsonRecord[] = [];
   for (let start = 0; ; start += 25) {
-    const playersResponse = await yahooApiGet(
-      `/league/${leagueKey}/players;count=25;start=${start}`,
-      accessToken,
-    );
+    let playersResponse: JsonRecord;
+    try {
+      playersResponse = await yahooApiGet(
+        `/league/${leagueKey}/players;count=25;start=${start}`,
+        accessToken,
+      );
+    } catch (err) {
+      console.warn(`  ⚠ Players page start=${start}: fetch failed, stopping player pagination – ${(err as Error).message}`);
+      break;
+    }
     await debugDump(options, `players-start-${start}`, playersResponse);
     const pagePlayers = extractPlayers(playersResponse);
     if (!pagePlayers.length) break;
