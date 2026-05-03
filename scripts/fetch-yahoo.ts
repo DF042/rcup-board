@@ -609,6 +609,54 @@ function extractTransactions(response: JsonRecord, leagueId: string): JsonRecord
   });
 }
 
+function extractPlayerStats(response: JsonRecord, leagueId: string, week: number, season: number): JsonRecord[] {
+  const sections = getLeagueSection(response);
+  const teamsBlock = sections
+    .map((section) => asRecord(section.teams))
+    .find((block) => Object.keys(block).length > 0);
+
+  if (!teamsBlock || Object.keys(teamsBlock).length === 0) return [];
+
+  const rawTeams = normalizeNestedCollection(teamsBlock, "team").map((entry) => flattenNode(entry));
+  const statRows: JsonRecord[] = [];
+
+  for (const team of rawTeams) {
+    const teamId = asString(team.team_id);
+    if (!teamId) continue;
+
+    const rosterBlock = asRecord(team.roster);
+    const innerRoster = asRecord(rosterBlock["0"] ?? rosterBlock);
+    const playersBlock = asRecord(innerRoster.players ?? rosterBlock.players);
+    const playerRows = normalizeNestedCollection(playersBlock, "player").map((entry) => flattenNode(entry));
+
+    for (const player of playerRows) {
+      const playerId = asString(player.player_id);
+      if (!playerId) continue;
+
+      // player_points is included when the /stats sub-resource is requested
+      const playerPointsBlock = asRecord(player.player_points ?? {});
+      const points = asString(playerPointsBlock.total ?? playerPointsBlock.value ?? "", "0");
+      if (!points || points === "0") continue;
+
+      const statValues = asRecord(
+        player.player_stats ?? asRecord(player.stats).stat_values ?? {},
+      );
+
+      statRows.push({
+        player_id: playerId,
+        team_id: teamId,
+        league_id: leagueId,
+        week,
+        season,
+        points,
+        stat_values: statValues,
+      });
+    }
+  }
+
+  return statRows;
+}
+
 async function writeJson(filePath: string, payload: JsonValue | JsonRecord) {
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
@@ -703,6 +751,7 @@ async function main() {
 
   const allMatchups: JsonRecord[] = [];
   const allRosters: JsonRecord[] = [];
+  const allPlayerStats: JsonRecord[] = [];
 
   for (let week = 1; week <= options.weeks; week += 1) {
     const scoreboardResponse = await yahooApiGet(`/league/${leagueKey}/scoreboard;week=${week}`, accessToken);
@@ -721,6 +770,23 @@ async function main() {
       console.warn(`  ⚠ Week ${week}: 0 roster entries parsed (${debugFileHint(options, `roster-week-${week}`)})`);
     }
     allRosters.push(...weekRosters);
+
+    // Fetch player stats for this week (roster with stats sub-resource)
+    try {
+      const statsResponse = await yahooApiGet(
+        `/league/${leagueKey}/teams/roster;week=${week}/stats;type=week;week=${week}`,
+        accessToken,
+      );
+      await debugDump(options, `stats-week-${week}`, statsResponse);
+      const season = leagueData.season;
+      const weekStats = extractPlayerStats(statsResponse, leagueId, week, season);
+      allPlayerStats.push(...weekStats);
+      if (weekStats.length === 0) {
+        console.warn(`  ⚠ Week ${week}: 0 player stats parsed`);
+      }
+    } catch (err) {
+      console.warn(`  ⚠ Week ${week}: could not fetch player stats – ${(err as Error).message}`);
+    }
   }
 
   const transactionsResponse = await yahooApiGet(
@@ -738,6 +804,7 @@ async function main() {
   const playersFile = path.join(options.out, "players.json");
   const matchupsFile = path.join(options.out, "matchups.json");
   const rostersFile = path.join(options.out, "rosters.json");
+  const playerStatsFile = path.join(options.out, "player_stats.json");
   const transactionsFile = path.join(options.out, "transactions.json");
 
   await writeJson(leagueFile, leagueData);
@@ -745,6 +812,7 @@ async function main() {
   await writeJson(playersFile, { players: allPlayers });
   await writeJson(matchupsFile, { matchups: allMatchups });
   await writeJson(rostersFile, { rosters: allRosters });
+  await writeJson(playerStatsFile, { player_stats: allPlayerStats });
   await writeJson(transactionsFile, { transactions });
 
   const relativeOut = path.relative(process.cwd(), options.out) || ".";
@@ -758,6 +826,7 @@ async function main() {
     `✓ Saved ${path.join(relativeOut, "matchups.json")} (${allMatchups.length} matchups across ${options.weeks} weeks)`,
   );
   console.log(`✓ Saved ${path.join(relativeOut, "rosters.json")} (${allRosters.length} roster entries)`);
+  console.log(`✓ Saved ${path.join(relativeOut, "player_stats.json")} (${allPlayerStats.length} player stat entries)`);
   console.log(`✓ Saved ${path.join(relativeOut, "transactions.json")} (${transactions.length} transactions)`);
 
   console.log("\nNow import in order:");
@@ -766,6 +835,7 @@ async function main() {
   console.log(`  npm run import ${path.join(relativeOut, "players.json")}`);
   console.log(`  npm run import ${path.join(relativeOut, "matchups.json")}`);
   console.log(`  npm run import ${path.join(relativeOut, "rosters.json")}`);
+  console.log(`  npm run import ${path.join(relativeOut, "player_stats.json")}`);
   console.log(`  npm run import ${path.join(relativeOut, "transactions.json")}`);
 }
 

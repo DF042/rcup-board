@@ -81,6 +81,7 @@ export type ManagerSummary = {
   totalPointsFor: number;
   bestFinish: number | null;
   worstFinish: number | null;
+  championships: number;
 };
 
 export type ManagerSeasonDetail = {
@@ -561,6 +562,18 @@ export async function getAllManagers(): Promise<ManagerSummary[]> {
     })
     .from(matchups);
 
+  // Count championships per manager via playoff_results → teams
+  const championshipRows = await db
+    .select({ managerId: teams.managerId })
+    .from(playoffResults)
+    .innerJoin(teams, eq(playoffResults.teamId, teams.id))
+    .where(eq(playoffResults.isChampion, true));
+  const championshipsByManager = new Map<number, number>();
+  for (const row of championshipRows) {
+    if (row.managerId == null) continue;
+    championshipsByManager.set(row.managerId, (championshipsByManager.get(row.managerId) ?? 0) + 1);
+  }
+
   const teamByManager = new Map<number, number[]>();
   const finishByManager = new Map<number, number[]>();
   const seasonByManager = new Map<number, Set<number>>();
@@ -633,6 +646,7 @@ export async function getAllManagers(): Promise<ManagerSummary[]> {
       totalPointsFor: Number(bucket.points.toFixed(2)),
       bestFinish: finishes.length ? Math.min(...finishes) : null,
       worstFinish: finishes.length ? Math.max(...finishes) : null,
+      championships: championshipsByManager.get(row.id) ?? 0,
     };
   });
 }
@@ -1134,7 +1148,6 @@ export async function getRoster(teamId: string, week: number): Promise<RosterPla
       playerStats,
       and(
         eq(playerStats.playerId, rosters.playerId),
-        eq(playerStats.teamId, rosters.teamId),
         eq(playerStats.week, rosters.week),
         eq(playerStats.leagueId, rosters.leagueId),
       ),
