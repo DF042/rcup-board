@@ -121,4 +121,84 @@ describe("fetch-yahoo script", () => {
     assert.equal(matchups[0]?.is_playoffs, false);
     assert.equal(matchups[0]?.week, 1);
   });
+
+  it("extractPlayerStats: records all players including those with missing player_points", () => {
+    // Simulates a Yahoo stats-week response where some players have player_points
+    // and some do not (e.g. benched or bye-week players in older seasons).
+    const response = {
+      fantasy_content: {
+        league: [
+          { league_key: "242.l.134839", league_id: "134839" },
+          {
+            teams: {
+              "0": {
+                team: [
+                  [{ team_key: "242.l.134839.t.1" }, { team_id: "1" }],
+                  {
+                    roster: {
+                      "0": {
+                        players: {
+                          "0": {
+                            player: [
+                              [{ player_id: "6624" }, { player_key: "242.p.6624" }],
+                              {
+                                player_points: { coverage_type: "week", week: "1", total: "32.50" },
+                                player_stats: {
+                                  coverage_type: "week",
+                                  week: "1",
+                                  stats: {
+                                    "0": { stat: { stat_id: "4", value: "312" } },
+                                    "1": { stat: { stat_id: "5", value: "2" } },
+                                    count: 2,
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                          // Player without player_points (benched / bye week)
+                          "1": {
+                            player: [
+                              [{ player_id: "6339" }, { player_key: "242.p.6339" }],
+                              {
+                                player_stats: {
+                                  coverage_type: "week",
+                                  week: "1",
+                                  stats: {
+                                    "0": { stat: { stat_id: "4", value: "0" } },
+                                    count: 1,
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                          count: 2,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+              count: 1,
+            },
+          },
+        ],
+      },
+    };
+
+    const stats = __private.extractPlayerStats(response, "134839", 1, 2010);
+
+    // Both players must be present — the guard must not skip the bench player
+    assert.equal(stats.length, 2);
+
+    const starter = stats.find((s) => s.player_id === "6624");
+    assert.ok(starter, "starter player should be present");
+    assert.equal(starter?.points, "32.50");
+    // stat_values should be a flat {stat_id: value} map, not the wrapper object
+    assert.deepEqual(starter?.stat_values, { "4": "312", "5": "2" });
+
+    const bench = stats.find((s) => s.player_id === "6339");
+    assert.ok(bench, "bench player (no player_points) should still be present");
+    assert.equal(bench?.points, "0");
+    assert.deepEqual(bench?.stat_values, { "4": "0" });
+  });
 });

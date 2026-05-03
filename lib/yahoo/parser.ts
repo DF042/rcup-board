@@ -393,6 +393,17 @@ export function detectDataType(data: unknown) {
       const teamsBlock = asRecord(section.teams);
       if (Object.keys(teamsBlock).length > 0) {
         const rawTeams = yahooNormalize(teamsBlock, "team");
+        const flatTeams = rawTeams.map(yahooFlatten);
+        const hasStats = flatTeams.some((t) => {
+          const rosterBlock = asRecord(t.roster);
+          const inner = asRecord(rosterBlock["0"] ?? rosterBlock);
+          const playerRows = yahooNormalize(
+            asRecord(inner.players ?? rosterBlock.players),
+            "player",
+          ).map(yahooFlatten);
+          return playerRows.some((p) => p.player_points != null);
+        });
+        if (hasStats) return "stats" as const;
         if (rawTeams.some((t) => "roster" in yahooFlatten(t))) return "rosters" as const;
         return "teams" as const;
       }

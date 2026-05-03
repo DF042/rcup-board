@@ -252,4 +252,51 @@ describe("yahoo parser", () => {
     assert.equal(transactions[0]?.transactionTimestamp, 1725543870);
     assert.equal((transactions[0]?.players as unknown[]).length, 1);
   });
+
+  it("detects raw Yahoo stats payload (fantasy_content) as 'stats' when player_points present", () => {
+    const rawYahoo = {
+      fantasy_content: {
+        league: [
+          { league_key: "nfl.l.12345", league_id: "12345" },
+          {
+            teams: {
+              0: {
+                team: [
+                  { team_id: "1", team_key: "nfl.l.12345.t.1", name: "Team A" },
+                  {
+                    roster: {
+                      "0": {
+                        players: {
+                          0: {
+                            player: [
+                              [{ player_id: "7578" }, { player_key: "nfl.p.7578" }],
+                              {
+                                player_points: { coverage_type: "week", week: "1", total: "22.00" },
+                                player_stats: {
+                                  coverage_type: "week",
+                                  week: "1",
+                                  stats: {
+                                    "0": { stat: { stat_id: "4", value: "200" } },
+                                    count: 1,
+                                  },
+                                },
+                              },
+                            ],
+                          },
+                          count: 1,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+              count: 1,
+            },
+          },
+        ],
+      },
+    };
+
+    assert.equal(detectDataType(rawYahoo), "stats");
+  });
 });

@@ -633,14 +633,29 @@ function extractPlayerStats(response: JsonRecord, leagueId: string, week: number
       const playerId = asString(player.player_id);
       if (!playerId) continue;
 
-      // player_points is included when the /stats sub-resource is requested
+      // player_points is included when the /stats sub-resource is requested.
+      // Allow points to be "0" — do NOT skip rows with missing/zero player_points.
       const playerPointsBlock = asRecord(player.player_points ?? {});
-      const points = asString(playerPointsBlock.total ?? playerPointsBlock.value ?? "", "0");
-      if (points === "" || playerPointsBlock.total == null) continue;
+      const points = asString(playerPointsBlock.total ?? playerPointsBlock.value ?? "0", "0");
 
-      const statValues = asRecord(
-        player.player_stats ?? asRecord(player.stats).stat_values ?? {},
-      );
+      // Extract stat_values: Yahoo wraps stats under player_stats.stats as
+      // {"0": {stat: {stat_id, value}}, "1": ...}
+      // Normalize to a flat {stat_id: value} map.
+      const rawPlayerStats = asRecord(player.player_stats ?? {});
+      const statsBlock = rawPlayerStats.stats;
+      let statValues: JsonRecord = {};
+      if (statsBlock != null) {
+        for (const entry of toArray(statsBlock)) {
+          const stat = asRecord((entry as JsonRecord).stat ?? entry);
+          const statId = asString(stat.stat_id);
+          if (statId) {
+            statValues[statId] = stat.value;
+          }
+        }
+      } else {
+        // Fallback: try player.stats directly (some response formats)
+        statValues = asRecord(player.stats ?? rawPlayerStats);
+      }
 
       statRows.push({
         player_id: playerId,
@@ -848,6 +863,7 @@ async function main() {
 export const __private = {
   parseArgs,
   extractMatchups,
+  extractPlayerStats,
   resolveLeagueKey,
 };
 
