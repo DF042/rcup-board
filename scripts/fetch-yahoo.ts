@@ -675,6 +675,71 @@ function extractPlayerStats(response: JsonRecord, leagueId: string, week: number
   return statRows;
 }
 
+function isAllZeroStats(rows: JsonRecord[]): boolean {
+  if (rows.length === 0) return false;
+  return rows.every((row) => row.points === "0" && Object.keys(asRecord(row.stat_values)).length === 0);
+}
+
+function extractPointsAndStatValues(player: JsonRecord): { points: string; statValues: JsonRecord } {
+  const playerPointsBlock = asRecord(player.player_points ?? {});
+  const points = asString(playerPointsBlock.total ?? playerPointsBlock.value ?? "0", "0");
+
+  const rawPlayerStats = asRecord(player.player_stats ?? {});
+  const statsBlock = rawPlayerStats.stats;
+  let statValues: JsonRecord = {};
+  if (statsBlock != null) {
+    for (const entry of toArray(statsBlock)) {
+      const stat = asRecord((entry as JsonRecord).stat ?? entry);
+      const statId = asString(stat.stat_id);
+      if (statId) statValues[statId] = asString(stat.value);
+    }
+  } else {
+    statValues = asRecord(player.stats ?? rawPlayerStats);
+  }
+
+  return { points, statValues };
+}
+
+function extractPlayerStatsFromTeamResponse(
+  response: JsonRecord,
+  teamId: string,
+  leagueId: string,
+  week: number,
+  season: number,
+): JsonRecord[] {
+  const fc = asRecord(response.fantasy_content);
+  const teamNode = flattenNode(fc.team);
+
+  const rosterBlock = asRecord(teamNode.roster);
+  const innerRoster = asRecord(rosterBlock["0"] ?? rosterBlock);
+  const playersBlock = asRecord(innerRoster.players ?? rosterBlock.players ?? teamNode.players);
+  const playerRows = normalizeNestedCollection(playersBlock, "player").map((entry) => flattenNode(entry));
+
+  const statRows: JsonRecord[] = [];
+  for (const player of playerRows) {
+    const playerId = asString(player.player_id);
+    if (!playerId) continue;
+    const { points, statValues } = extractPointsAndStatValues(player);
+    statRows.push({ player_id: playerId, team_id: teamId, league_id: leagueId, week, season, points, stat_values: statValues });
+  }
+  return statRows;
+}
+
+function extractPlayerStatsFromPlayerResponse(
+  response: JsonRecord,
+  teamId: string,
+  leagueId: string,
+  week: number,
+  season: number,
+): JsonRecord | null {
+  const fc = asRecord(response.fantasy_content);
+  const player = flattenNode(fc.player);
+  const playerId = asString(player.player_id);
+  if (!playerId) return null;
+  const { points, statValues } = extractPointsAndStatValues(player);
+  return { player_id: playerId, team_id: teamId, league_id: leagueId, week, season, points, stat_values: statValues };
+}
+
 async function writeJson(filePath: string, payload: JsonValue | JsonRecord) {
   await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
@@ -803,7 +868,75 @@ async function main() {
       );
       await debugDump(options, `stats-week-${week}`, statsResponse);
       const season = leagueData.season;
-      const weekStats = extractPlayerStats(statsResponse, leagueId, week, season);
+      let weekStats = extractPlayerStats(statsResponse, leagueId, week, season);
+
+      if (isAllZeroStats(weekStats)) {
+        console.warn(`  ⚠ Week ${week}: all-zero stats detected, trying per-team stats fallback`);
+
+        // Step 1 — per-team fallback
+        const fallback1Stats: JsonRecord[] = [];
+        for (const team of teamsData.teams) {
+          const teamKey = asString(team.team_key);
+          if (!teamKey) continue;
+          try {
+            const teamStatsResponse = await yahooApiGet(
+              `/team/${teamKey}/players/stats;type=week;week=${week}`,
+              accessToken,
+            );
+            const teamStats = extractPlayerStatsFromTeamResponse(
+              teamStatsResponse,
+              asString(team.team_id),
+              leagueId,
+              week,
+              season,
+            );
+            fallback1Stats.push(...teamStats);
+          } catch (err) {
+            console.warn(
+              `  ⚠ Week ${week}: per-team stats fetch failed for team ${teamKey} – ${(err as Error).message}`,
+            );
+          }
+        }
+
+        if (!isAllZeroStats(fallback1Stats) && fallback1Stats.length > 0) {
+          weekStats = fallback1Stats;
+        } else {
+          // Step 2 — per-player fallback
+          console.warn(
+            `  ⚠ Week ${week}: per-team stats fallback also all-zeros, trying per-player stats fallback (${weekStats.length} players)`,
+          );
+          const playerKeyMap = new Map(allPlayers.map((p) => [asString(p.player_id), asString(p.player_key)]));
+          const fallback2Stats: JsonRecord[] = [];
+          for (const row of weekStats) {
+            const playerId = asString(row.player_id);
+            const teamId = asString(row.team_id);
+            const playerKey = playerKeyMap.get(playerId);
+            if (!playerKey) continue;
+            try {
+              const playerStatsResponse = await yahooApiGet(
+                `/player/${playerKey}/stats;type=week;week=${week}`,
+                accessToken,
+              );
+              const playerStat = extractPlayerStatsFromPlayerResponse(
+                playerStatsResponse,
+                teamId,
+                leagueId,
+                week,
+                season,
+              );
+              if (playerStat) fallback2Stats.push(playerStat);
+            } catch (err) {
+              console.warn(
+                `  ⚠ Week ${week}: per-player stats fetch failed for player ${playerKey} – ${(err as Error).message}`,
+              );
+            }
+          }
+          const nonZeroCount = fallback2Stats.filter((s) => !isAllZeroStats([s])).length;
+          console.log(`  ℹ Week ${week}: per-player fallback resolved ${nonZeroCount} non-zero players`);
+          if (fallback2Stats.length > 0) weekStats = fallback2Stats;
+        }
+      }
+
       allPlayerStats.push(...weekStats);
       if (weekStats.length === 0) {
         console.warn(`  ⚠ Week ${week}: 0 player stats parsed`);
@@ -867,6 +1000,9 @@ export const __private = {
   parseArgs,
   extractMatchups,
   extractPlayerStats,
+  extractPlayerStatsFromTeamResponse,
+  extractPlayerStatsFromPlayerResponse,
+  isAllZeroStats,
   resolveLeagueKey,
 };
 
