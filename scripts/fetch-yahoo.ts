@@ -649,11 +649,14 @@ function extractPlayerStats(response: JsonRecord, leagueId: string, week: number
           const stat = asRecord((entry as JsonRecord).stat ?? entry);
           const statId = asString(stat.stat_id);
           if (statId) {
-            statValues[statId] = stat.value;
+            statValues[statId] = asString(stat.value);
           }
         }
       } else {
-        // Fallback: try player.stats directly (some response formats)
+        // Fallback for older/alternate response formats where stats arrive as a
+        // pre-normalized flat {stat_id: value} map directly on player.stats.
+        // rawPlayerStats is the player_stats wrapper (no stats sub-key), so using
+        // it directly as a fallback is safe — it won't have real stat_id keys.
         statValues = asRecord(player.stats ?? rawPlayerStats);
       }
 

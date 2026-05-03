@@ -193,7 +193,7 @@ describe("fetch-yahoo script", () => {
     const starter = stats.find((s) => s.player_id === "6624");
     assert.ok(starter, "starter player should be present");
     assert.equal(starter?.points, "32.50");
-    // stat_values should be a flat {stat_id: value} map, not the wrapper object
+    // stat_values should be a flat {stat_id: value} map with string values, not the wrapper object
     assert.deepEqual(starter?.stat_values, { "4": "312", "5": "2" });
 
     const bench = stats.find((s) => s.player_id === "6339");
