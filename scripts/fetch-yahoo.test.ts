@@ -201,4 +201,113 @@ describe("fetch-yahoo script", () => {
     assert.equal(bench?.points, "0");
     assert.deepEqual(bench?.stat_values, { "4": "0" });
   });
+
+  it("isAllZeroStats: returns false for empty array", () => {
+    assert.equal(__private.isAllZeroStats([]), false);
+  });
+
+  it("isAllZeroStats: returns true when every row has points=0 and empty stat_values", () => {
+    const rows = [
+      { player_id: "1", points: "0", stat_values: {} },
+      { player_id: "2", points: "0", stat_values: {} },
+    ];
+    assert.equal(__private.isAllZeroStats(rows), true);
+  });
+
+  it("isAllZeroStats: returns false when at least one row has non-zero points", () => {
+    const rows = [
+      { player_id: "1", points: "12.5", stat_values: { "4": "100" } },
+      { player_id: "2", points: "0", stat_values: {} },
+    ];
+    assert.equal(__private.isAllZeroStats(rows), false);
+  });
+
+  it("isAllZeroStats: returns false when at least one row has non-empty stat_values even if points=0", () => {
+    const rows = [
+      { player_id: "1", points: "0", stat_values: { "4": "0" } },
+      { player_id: "2", points: "0", stat_values: {} },
+    ];
+    assert.equal(__private.isAllZeroStats(rows), false);
+  });
+
+  it("extractPlayerStatsFromTeamResponse: parses players from per-team endpoint response", () => {
+    const response = {
+      fantasy_content: {
+        team: [
+          [{ team_key: "242.l.134839.t.1" }, { team_id: "1" }],
+          {
+            players: {
+              "0": {
+                player: [
+                  [{ player_id: "6624" }, { player_key: "242.p.6624" }],
+                  {
+                    player_points: { coverage_type: "week", week: "1", total: "18.00" },
+                    player_stats: {
+                      coverage_type: "week",
+                      week: "1",
+                      stats: {
+                        "0": { stat: { stat_id: "4", value: "150" } },
+                        count: 1,
+                      },
+                    },
+                  },
+                ],
+              },
+              count: 1,
+            },
+          },
+        ],
+      },
+    };
+
+    const stats = __private.extractPlayerStatsFromTeamResponse(response, "1", "134839", 1, 2010);
+    assert.equal(stats.length, 1);
+    assert.equal(stats[0]?.player_id, "6624");
+    assert.equal(stats[0]?.team_id, "1");
+    assert.equal(stats[0]?.points, "18.00");
+    assert.deepEqual(stats[0]?.stat_values, { "4": "150" });
+  });
+
+  it("extractPlayerStatsFromPlayerResponse: parses a single player from per-player endpoint response", () => {
+    const response = {
+      fantasy_content: {
+        player: [
+          [{ player_id: "6624" }, { player_key: "242.p.6624" }],
+          {
+            player_points: { coverage_type: "week", week: "1", total: "22.50" },
+            player_stats: {
+              coverage_type: "week",
+              week: "1",
+              stats: {
+                "0": { stat: { stat_id: "4", value: "200" } },
+                "1": { stat: { stat_id: "5", value: "1" } },
+                count: 2,
+              },
+            },
+          },
+        ],
+      },
+    };
+
+    const stat = __private.extractPlayerStatsFromPlayerResponse(response, "2", "134839", 1, 2010);
+    assert.ok(stat, "should return a stat row");
+    assert.equal(stat?.player_id, "6624");
+    assert.equal(stat?.team_id, "2");
+    assert.equal(stat?.points, "22.50");
+    assert.deepEqual(stat?.stat_values, { "4": "200", "5": "1" });
+  });
+
+  it("extractPlayerStatsFromPlayerResponse: returns null when player_id is missing", () => {
+    const response = {
+      fantasy_content: {
+        player: [
+          [{ player_key: "242.p.6624" }],
+          { player_points: { total: "5.00" } },
+        ],
+      },
+    };
+
+    const stat = __private.extractPlayerStatsFromPlayerResponse(response, "1", "134839", 1, 2010);
+    assert.equal(stat, null);
+  });
 });
