@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Crown } from "lucide-react";
 import type { ManagerSummary } from "@/lib/db/queries";
 
 export function ManagerCard({ manager }: { manager: ManagerSummary }) {
@@ -14,7 +15,12 @@ export function ManagerCard({ manager }: { manager: ManagerSummary }) {
           <div className="flex h-10 w-10 items-center justify-center rounded-full border bg-muted text-xs font-semibold">{manager.nickname.slice(0, 2).toUpperCase()}</div>
         )}
         <div>
-          <p className="font-semibold">{manager.nickname}</p>
+          <p className="flex items-center gap-1 font-semibold">
+            {manager.nickname}
+            {Array.from({ length: manager.championships }, (_, i) => (
+              <Crown key={i} className="h-4 w-4 text-yellow-500" aria-label={`Championship ${i + 1}`} />
+            ))}
+          </p>
           <p className="text-xs text-muted-foreground">
             {manager.totalWins}-{manager.totalLosses}-{manager.totalTies}
           </p>
