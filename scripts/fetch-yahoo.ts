@@ -780,7 +780,7 @@ async function main() {
     // Fetch player stats for this week (roster with stats sub-resource)
     try {
       const statsResponse = await yahooApiGet(
-        `/league/${leagueKey}/teams/roster;week=${week}/stats;type=week;week=${week}`,
+        `/league/${leagueKey}/teams/roster;week=${week}/players/stats;type=week;week=${week}`,
         accessToken,
       );
       await debugDump(options, `stats-week-${week}`, statsResponse);
