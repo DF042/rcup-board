@@ -26,7 +26,7 @@ export default async function MatchupsPage({
   const rosterMap = new Map<number, Awaited<ReturnType<typeof getRoster>>>();
   await Promise.all(
     [...new Set(matchups.flatMap((row) => [row.team1Id, row.team2Id]))].map(async (teamId) => {
-      rosterMap.set(teamId, await getRoster(String(teamId), week));
+      rosterMap.set(teamId, await getRoster(String(teamId), week, season));
     }),
   );
 

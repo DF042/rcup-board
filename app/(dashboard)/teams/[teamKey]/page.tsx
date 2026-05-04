@@ -28,7 +28,7 @@ export default async function TeamDetailPage({
     getMatchups({ teamId: String(team.id), season: team.season }),
   ]);
 
-  const roster = await getRoster(String(team.id), week);
+  const roster = await getRoster(String(team.id), week, team.season);
 
   const leagueAvg = {
     pointsFor: allTeams.length ? allTeams.reduce((sum, row) => sum + row.pointsFor, 0) / allTeams.length : 0,
