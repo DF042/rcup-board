@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Result = { viewType: string; dataType: string; data: unknown } | null;
+type Result = unknown;
 
 export function QueryBuilder() {
   const [open, setOpen] = useState(false);
@@ -17,6 +17,7 @@ export function QueryBuilder() {
   const [week, setWeek] = useState("");
   const [position, setPosition] = useState("");
   const [result, setResult] = useState<Result>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const bookmarkUrl = useMemo(() => {
@@ -43,11 +44,31 @@ export function QueryBuilder() {
 
       {open ? (
         <div className="mt-2 space-y-2">
+          <p className="text-muted-foreground">
+            Team IDs can be found in the URL when viewing a team page. Manager IDs appear in the URL on the /managers pages.
+          </p>
           <div className="grid gap-2 md:grid-cols-2">
-            <Input value={viewType} onChange={(e) => setViewType(e.target.value === "manager" ? "manager" : "team")} placeholder="team or manager" />
-            <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} placeholder="Entity 1 ID" />
+            <select
+              className="rounded border bg-background px-2 py-1 text-xs"
+              value={viewType}
+              onChange={(e) => setViewType(e.target.value === "manager" ? "manager" : "team")}
+            >
+              <option value="team">team</option>
+              <option value="manager">manager</option>
+            </select>
+            <Input value={entityId} onChange={(e) => setEntityId(e.target.value)} placeholder="Team or Manager numeric ID" />
             <Input value={compareEntityId} onChange={(e) => setCompareEntityId(e.target.value)} placeholder="Entity 2 ID (optional)" />
-            <Input value={dataType} onChange={(e) => setDataType((e.target.value as typeof dataType) || "record")} placeholder="record/roster/matchups/stats/transactions" />
+            <select
+              className="rounded border bg-background px-2 py-1 text-xs"
+              value={dataType}
+              onChange={(e) => setDataType(e.target.value as typeof dataType)}
+            >
+              <option value="record">record</option>
+              <option value="roster">roster</option>
+              <option value="matchups">matchups</option>
+              <option value="stats">stats</option>
+              <option value="transactions">transactions</option>
+            </select>
             <Input value={seasonFrom} onChange={(e) => setSeasonFrom(e.target.value)} placeholder="Season from" />
             <Input value={seasonTo} onChange={(e) => setSeasonTo(e.target.value)} placeholder="Season to" />
             <Input value={week} onChange={(e) => setWeek(e.target.value)} placeholder="Week" />
@@ -60,6 +81,7 @@ export function QueryBuilder() {
               size="sm"
               onClick={async () => {
                 setLoading(true);
+                setError(null);
                 try {
                   const response = await fetch("/api/query", {
                     method: "POST",
@@ -74,8 +96,12 @@ export function QueryBuilder() {
                       position: position || undefined,
                     }),
                   });
-                  const payload = (await response.json()) as Result;
-                  setResult(payload);
+                  const payload = await response.json();
+                  if (!response.ok) {
+                    setError(payload?.error ?? `Request failed with status ${response.status}`);
+                  } else {
+                    setResult(payload);
+                  }
                 } finally {
                   setLoading(false);
                 }
@@ -96,8 +122,12 @@ export function QueryBuilder() {
             </Button>
           </div>
 
-          {result ? (
-            <pre className="max-h-64 overflow-auto rounded bg-muted p-2 text-[11px]">{JSON.stringify(result.data, null, 2)}</pre>
+          {error ? (
+            <p className="text-xs text-red-600">{error}</p>
+          ) : null}
+
+          {result !== null ? (
+            <pre className="max-h-64 overflow-auto rounded bg-muted p-2 text-[11px]">{JSON.stringify(result, null, 2)}</pre>
           ) : null}
         </div>
       ) : null}

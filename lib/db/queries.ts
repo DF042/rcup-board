@@ -141,6 +141,7 @@ export type PlayerWithStats = {
   name: string;
   position: string;
   nflTeam: string | null;
+  season: number | null;
   seasonPoints: number;
   weekAvg: number;
   bestWeek: number;
@@ -961,11 +962,14 @@ export async function getPlayers(filters: {
   leagueId?: string;
   limit?: number;
   offset?: number;
+  sortBy?: "name" | "position" | "nflTeam" | "seasonPoints" | "weekAvg" | "bestWeek" | "ownerTeamName" | "season";
+  sortDir?: "asc" | "desc";
 }): Promise<{ players: PlayerWithStats[]; total: number }> {
   const leagueNumericId = filters.leagueId ? await resolveLeagueNumericId(filters.leagueId) : undefined;
   const teamId = filters.teamId ? Number(filters.teamId) : undefined;
   const limit = filters.limit ?? 25;
   const offset = filters.offset ?? 0;
+  const sortDir = filters.sortDir ?? "desc";
 
   const whereClause = and(
     filters.search ? ilike(players.fullName, `%${filters.search}%`) : undefined,
@@ -975,6 +979,35 @@ export async function getPlayers(filters: {
     leagueNumericId ? eq(playerStats.leagueId, leagueNumericId) : undefined,
   );
 
+  const seasonPointsExpr = sql`coalesce(sum(${playerStats.points}::numeric), 0)`;
+  const weekAvgExpr = avg(sql<number>`${playerStats.points}::numeric`);
+  const bestWeekExpr = max(sql<number>`${playerStats.points}::numeric`);
+  const ownerTeamExpr = max(teams.name);
+  const seasonExpr = max(playerStats.season);
+
+  const orderExpr = (() => {
+    const dir = sortDir === "asc" ? asc : desc;
+    switch (filters.sortBy) {
+      case "name":
+        return dir(players.fullName);
+      case "position":
+        return dir(sql`coalesce(${players.positions}[1], 'N/A')`);
+      case "nflTeam":
+        return dir(players.nflTeam);
+      case "weekAvg":
+        return dir(weekAvgExpr);
+      case "bestWeek":
+        return dir(bestWeekExpr);
+      case "ownerTeamName":
+        return dir(ownerTeamExpr);
+      case "season":
+        return dir(seasonExpr);
+      case "seasonPoints":
+      default:
+        return dir(seasonPointsExpr);
+    }
+  })();
+
   const rows = await db
     .select({
       playerId: players.id,
@@ -982,17 +1015,18 @@ export async function getPlayers(filters: {
       name: players.fullName,
       position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
       nflTeam: players.nflTeam,
-      ownerTeamName: max(teams.name),
-      seasonPoints: sql<number>`coalesce(sum(${playerStats.points}::numeric), 0)`,
-      weekAvg: avg(sql<number>`${playerStats.points}::numeric`),
-      bestWeek: max(sql<number>`${playerStats.points}::numeric`),
+      ownerTeamName: ownerTeamExpr,
+      season: seasonExpr,
+      seasonPoints: seasonPointsExpr,
+      weekAvg: weekAvgExpr,
+      bestWeek: bestWeekExpr,
     })
     .from(players)
     .leftJoin(playerStats, eq(playerStats.playerId, players.id))
     .leftJoin(teams, eq(playerStats.teamId, teams.id))
     .where(whereClause)
     .groupBy(players.id)
-    .orderBy(desc(sql`coalesce(sum(${playerStats.points}::numeric), 0)`))
+    .orderBy(orderExpr)
     .limit(limit)
     .offset(offset);
 
@@ -1010,6 +1044,7 @@ export async function getPlayers(filters: {
       position: row.position,
       nflTeam: row.nflTeam,
       ownerTeamName: row.ownerTeamName,
+      season: row.season ?? null,
       seasonPoints: Number(toNumber(row.seasonPoints).toFixed(2)),
       weekAvg: Number(toNumber(row.weekAvg).toFixed(2)),
       bestWeek: Number(toNumber(row.bestWeek).toFixed(2)),
