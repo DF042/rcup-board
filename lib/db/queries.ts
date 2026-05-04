@@ -1,4 +1,4 @@
-import { and, asc, avg, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, ilike, isNull, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { leagues, managers, matchups, playerStats, players, rosters, seasonStats, playoffResults, teams, transactions } from "@/lib/db/schema";
@@ -1126,7 +1126,7 @@ export async function getTopScorers(params: { season: number; week?: number; pos
   }));
 }
 
-export async function getRoster(teamId: string, week: number): Promise<RosterPlayer[]> {
+export async function getRoster(teamId: string, week: number, season?: number): Promise<RosterPlayer[]> {
   const id = Number(teamId);
   if (!Number.isFinite(id)) return [];
 
@@ -1148,8 +1148,10 @@ export async function getRoster(teamId: string, week: number): Promise<RosterPla
       playerStats,
       and(
         eq(playerStats.playerId, rosters.playerId),
-        eq(playerStats.week, rosters.week),
         eq(playerStats.leagueId, rosters.leagueId),
+        eq(playerStats.teamId, rosters.teamId),
+        or(eq(playerStats.week, rosters.week), isNull(playerStats.week)),
+        season !== undefined ? eq(playerStats.season, season) : undefined,
       ),
     )
     .where(and(eq(rosters.teamId, id), eq(rosters.week, week)))
@@ -1231,7 +1233,7 @@ export async function crossViewQuery(params: {
     }
     if (params.dataType === "roster") {
       const week = params.week ?? 1;
-      return { viewType: "team", entityId: params.entityId, dataType: "roster", data: await getRoster(params.entityId, week) };
+      return { viewType: "team", entityId: params.entityId, dataType: "roster", data: await getRoster(params.entityId, week, params.season) };
     }
     if (params.dataType === "matchups") {
       if (params.compareEntityId) {

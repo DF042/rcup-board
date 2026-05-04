@@ -92,7 +92,7 @@ export default async function DashboardPage({
       const sep = key.lastIndexOf("_");
       const teamIdStr = key.slice(0, sep);
       const weekStr = key.slice(sep + 1);
-      playoffRosterMap[key] = await getRoster(teamIdStr, Number(weekStr));
+      playoffRosterMap[key] = await getRoster(teamIdStr, Number(weekStr), selectedSeason);
     }),
   );
 
