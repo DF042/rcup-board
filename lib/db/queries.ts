@@ -984,6 +984,7 @@ export async function getPlayers(filters: {
   const bestWeekExpr = max(sql<number>`${playerStats.points}::numeric`);
   const ownerTeamExpr = max(teams.name);
   const seasonExpr = max(playerStats.season);
+  const positionExpr = sql<string>`coalesce(${players.positions}[1], 'N/A')`;
 
   const orderExpr = (() => {
     const dir = sortDir === "asc" ? asc : desc;
@@ -991,7 +992,7 @@ export async function getPlayers(filters: {
       case "name":
         return dir(players.fullName);
       case "position":
-        return dir(sql`coalesce(${players.positions}[1], 'N/A')`);
+        return dir(positionExpr);
       case "nflTeam":
         return dir(players.nflTeam);
       case "weekAvg":
@@ -1013,7 +1014,7 @@ export async function getPlayers(filters: {
       playerId: players.id,
       playerKey: players.playerKey,
       name: players.fullName,
-      position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
+      position: positionExpr,
       nflTeam: players.nflTeam,
       ownerTeamName: ownerTeamExpr,
       season: seasonExpr,
