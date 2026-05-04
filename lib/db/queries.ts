@@ -1,4 +1,4 @@
-import { and, asc, avg, count, desc, eq, ilike, isNull, max, or, sql } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { leagues, managers, matchups, playerStats, players, rosters, seasonStats, playoffResults, teams, transactions } from "@/lib/db/schema";
@@ -1149,9 +1149,7 @@ export async function getRoster(teamId: string, week: number, season?: number): 
       and(
         eq(playerStats.playerId, rosters.playerId),
         eq(playerStats.leagueId, rosters.leagueId),
-        eq(playerStats.teamId, rosters.teamId),
-        // NULL week means season-total stats; match either per-week or season-total rows
-        or(eq(playerStats.week, rosters.week), isNull(playerStats.week)),
+        eq(playerStats.week, rosters.week),
         season !== undefined ? eq(playerStats.season, season) : undefined,
       ),
     )
