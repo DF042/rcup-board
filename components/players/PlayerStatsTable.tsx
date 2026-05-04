@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { PlayerWithStats } from "@/lib/db/queries";
 
-type SortKey = "name" | "position" | "nflTeam" | "seasonPoints" | "weekAvg" | "bestWeek" | "ownerTeamName";
+type SortKey = "name" | "position" | "nflTeam" | "season" | "seasonPoints" | "weekAvg" | "bestWeek" | "ownerTeamName";
 
 const colors: Record<string, string> = {
   QB: "bg-red-100 text-red-700",
@@ -14,66 +14,76 @@ const colors: Record<string, string> = {
   DEF: "bg-yellow-100 text-yellow-700",
 };
 
-export function PlayerStatsTable({ players, total, page, pageSize }: { players: PlayerWithStats[]; total: number; page: number; pageSize: number }) {
-  const [sortBy, setSortBy] = useState<SortKey>("seasonPoints");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+const columns: { label: string; key: SortKey; defaultDir?: "asc" | "desc" }[] = [
+  { label: "Player", key: "name", defaultDir: "asc" },
+  { label: "Position", key: "position", defaultDir: "asc" },
+  { label: "Season", key: "season" },
+  { label: "NFL Team", key: "nflTeam", defaultDir: "asc" },
+  { label: "Season Points", key: "seasonPoints" },
+  { label: "Week Avg", key: "weekAvg" },
+  { label: "Best Week", key: "bestWeek" },
+  { label: "Owner", key: "ownerTeamName", defaultDir: "asc" },
+];
 
-  const sorted = useMemo(() => {
-    const copy = [...players];
-    copy.sort((a, b) => {
-      const left = a[sortBy] ?? "";
-      const right = b[sortBy] ?? "";
-      if (typeof left === "string" || typeof right === "string") {
-        return `${left}`.localeCompare(`${right}`) * (sortDir === "asc" ? 1 : -1);
-      }
-      return ((Number(left) || 0) - (Number(right) || 0)) * (sortDir === "asc" ? 1 : -1);
-    });
-    return copy;
-  }, [players, sortBy, sortDir]);
+export function PlayerStatsTable({
+  players,
+  total,
+  page,
+  pageSize,
+  sortBy,
+  sortDir,
+}: {
+  players: PlayerWithStats[];
+  total: number;
+  page: number;
+  pageSize: number;
+  sortBy: SortKey;
+  sortDir: "asc" | "desc";
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function handleSort(key: SortKey, defaultDir: "asc" | "desc" = "desc") {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === key) {
+      params.set("sortDir", sortDir === "asc" ? "desc" : "asc");
+    } else {
+      params.set("sortBy", key);
+      params.set("sortDir", defaultDir);
+    }
+    params.set("page", "1");
+    router.push(`?${params.toString()}`);
+  }
 
   return (
     <div className="space-y-2">
       <div className="table-scroll-wrap">
-        <div className="min-w-[760px] overflow-hidden rounded border">
+        <div className="min-w-[860px] overflow-hidden rounded border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left">
             <tr>
-              {["Player", "Position", "NFL Team", "Season Points", "Week Avg", "Best Week", "Owner"].map((label) => (
-                <th key={label} className="px-2 py-2">
+              {columns.map(({ label, key, defaultDir }) => (
+                <th key={key} className="px-2 py-2">
                   <button
                     type="button"
                     className="font-medium"
-                    onClick={() => {
-                      const map: Record<string, SortKey> = {
-                        Player: "name",
-                        Position: "position",
-                        "NFL Team": "nflTeam",
-                        "Season Points": "seasonPoints",
-                        "Week Avg": "weekAvg",
-                        "Best Week": "bestWeek",
-                        Owner: "ownerTeamName",
-                      };
-                      const key = map[label];
-                      if (sortBy === key) setSortDir((value) => (value === "asc" ? "desc" : "asc"));
-                      else {
-                        setSortBy(key);
-                        setSortDir(key === "name" ? "asc" : "desc");
-                      }
-                    }}
+                    onClick={() => handleSort(key, defaultDir)}
                   >
                     {label}
+                    {sortBy === key ? (sortDir === "asc" ? " ↑" : " ↓") : null}
                   </button>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {sorted.map((player) => (
+            {players.map((player) => (
               <tr key={player.playerId} className="border-t">
                 <td className="px-2 py-2">{player.name}</td>
                 <td className="px-2 py-2">
                   <span className={`rounded px-2 py-0.5 text-xs ${colors[player.position] ?? "bg-muted"}`}>{player.position}</span>
                 </td>
+                <td className="px-2 py-2">{player.season ?? "—"}</td>
                 <td className="px-2 py-2">{player.nflTeam ?? "—"}</td>
                 <td className="px-2 py-2">{player.seasonPoints.toFixed(2)}</td>
                 <td className="px-2 py-2">{player.weekAvg.toFixed(2)}</td>
