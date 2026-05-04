@@ -23,11 +23,14 @@ export default async function DashboardPage({
     return <div className="py-4 text-sm text-muted-foreground">No season data available yet.</div>;
   }
 
-  const [standings, currentWeek, allMatchups, topScorers, championHistory, playoffResults] = await Promise.all([
+  const selectedSeasonNum = selectedSeason ?? seasonLeague.season;
+  const [standings, currentWeek, allMatchups, topQBs, topWRs, topRBs, championHistory, playoffResults] = await Promise.all([
     getStandings(String(seasonLeague.leagueId), selectedSeason),
     getCurrentWeek(String(seasonLeague.leagueId)),
     getMatchups({ leagueId: String(seasonLeague.leagueId), season: selectedSeason }),
-    getTopScorers({ season: selectedSeason ?? seasonLeague.season, limit: 5 }),
+    getTopScorers({ season: selectedSeasonNum, position: "QB", limit: 5 }),
+    getTopScorers({ season: selectedSeasonNum, position: "WR", limit: 5 }),
+    getTopScorers({ season: selectedSeasonNum, position: "RB", limit: 5 }),
     getChampionHistory(),
     getPlayoffResults({ leagueId: String(seasonLeague.leagueId), season: selectedSeason }),
   ]);
@@ -123,18 +126,31 @@ export default async function DashboardPage({
       <StandingsTable rows={standings} playoffResults={enrichedPlayoffResults} />
 
       <div className="rounded border p-4">
-        <h3 className="mb-2 font-semibold">Top 5 Scorers</h3>
-        <ul className="space-y-1 text-sm">
-          {topScorers.slice(0, 5).map((player) => (
-            <li key={player.playerId} className="flex items-center justify-between">
-              <span>
-                {player.name} <span className="text-muted-foreground">({player.position})</span>
-              </span>
-              <span className="font-medium">{player.points.toFixed(2)}</span>
-            </li>
+        <h3 className="mb-3 font-semibold">Top Scorers by Position</h3>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {(
+            [
+              { label: "Top 5 QBs", scorers: topQBs },
+              { label: "Top 5 WRs", scorers: topWRs },
+              { label: "Top 5 Running Backs", scorers: topRBs },
+            ] as const
+          ).map(({ label, scorers }) => (
+            <div key={label} className="rounded border p-3">
+              <h4 className="mb-2 text-sm font-semibold text-muted-foreground uppercase tracking-wide">{label}</h4>
+              <ul className="space-y-1 text-sm">
+                {scorers.slice(0, 5).map((player) => (
+                  <li key={player.playerId} className="flex items-center justify-between">
+                    <span className="truncate pr-2">{player.name}</span>
+                    <span className="shrink-0 font-medium">{player.points.toFixed(2)}</span>
+                  </li>
+                ))}
+                {scorers.length === 0 ? (
+                  <li className="text-muted-foreground">No data available.</li>
+                ) : null}
+              </ul>
+            </div>
           ))}
-          {topScorers.length === 0 ? <li className="text-muted-foreground">No scorer data available.</li> : null}
-        </ul>
+        </div>
       </div>
 
       <RecentMatchups matchups={currentWeekMatchups} />
