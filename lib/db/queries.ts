@@ -1150,6 +1150,7 @@ export async function getRoster(teamId: string, week: number, season?: number): 
         eq(playerStats.playerId, rosters.playerId),
         eq(playerStats.leagueId, rosters.leagueId),
         eq(playerStats.teamId, rosters.teamId),
+        // NULL week means season-total stats; match either per-week or season-total rows
         or(eq(playerStats.week, rosters.week), isNull(playerStats.week)),
         season !== undefined ? eq(playerStats.season, season) : undefined,
       ),
