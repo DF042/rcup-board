@@ -1,4 +1,4 @@
-import { and, asc, avg, count, desc, eq, ilike, max, or, sql } from "drizzle-orm";
+import { and, asc, avg, count, desc, eq, ilike, isNull, max, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/lib/db";
 import { leagues, managers, matchups, playerStats, players, rosters, seasonStats, playoffResults, teams, transactions } from "@/lib/db/schema";
@@ -1166,6 +1166,10 @@ export async function getRoster(teamId: string, week: number, season?: number): 
   const id = Number(teamId);
   if (!Number.isFinite(id)) return [];
 
+  // Alias the playerStats table so we can join it twice:
+  // once for week-specific stats and once for season-aggregate (week IS NULL) as a fallback.
+  const psAgg = alias(playerStats, "ps_agg");
+
   const rows = await db
     .select({
       playerId: players.id,
@@ -1175,7 +1179,7 @@ export async function getRoster(teamId: string, week: number, season?: number): 
       position: sql<string>`coalesce(${players.positions}[1], 'N/A')`,
       rosterPosition: rosters.rosterPosition,
       isStarting: rosters.isStarting,
-      points: playerStats.points,
+      points: sql<number>`COALESCE(${playerStats.points}::numeric, ${psAgg.points}::numeric, 0)`,
       status: players.status,
     })
     .from(rosters)
@@ -1187,6 +1191,15 @@ export async function getRoster(teamId: string, week: number, season?: number): 
         eq(playerStats.leagueId, rosters.leagueId),
         eq(playerStats.week, rosters.week),
         season !== undefined ? eq(playerStats.season, season) : undefined,
+      ),
+    )
+    .leftJoin(
+      psAgg,
+      and(
+        eq(psAgg.playerId, rosters.playerId),
+        eq(psAgg.leagueId, rosters.leagueId),
+        isNull(psAgg.week),
+        season !== undefined ? eq(psAgg.season, season) : undefined,
       ),
     )
     .where(and(eq(rosters.teamId, id), eq(rosters.week, week)))

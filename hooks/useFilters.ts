@@ -28,7 +28,7 @@ export function useFilters() {
       search: parseAsString,
       view: viewParser,
     },
-    { history: "push", shallow: true, clearOnDefault: true },
+    { history: "push", shallow: false, clearOnDefault: true },
   );
 
   const activeFilterCount = useMemo(
